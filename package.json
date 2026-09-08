@@ -1,0 +1,92 @@
+{
+  "name": "fincontrol",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "packageManager": "pnpm@10.17.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "@node-rs/argon2",
+      "@napi-rs/canvas",
+      "esbuild",
+      "prisma"
+    ],
+    "overrides": {
+      "deepmerge-ts": "8.0.2",
+      "esbuild": "0.28.1",
+      "lodash": "4.18.1",
+      "mysql2": "3.24.4",
+      "nanoid": "5.1.16",
+      "undici": "7.29.0",
+      "vite": "7.3.5"
+    }
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "check": "pnpm db:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "5.9.1",
+    "@napi-rs/canvas": "1.0.8",
+    "@node-rs/argon2": "2.2.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@vercel/blob": "2.8.0",
+    "better-auth": "1.7.3",
+    "clsx": "2.1.1",
+    "date-fns": "4.4.0",
+    "decimal.js": "10.6.0",
+    "dotenv": "17.4.2",
+    "lucide-react": "1.42.0",
+    "next": "16.3.4",
+    "next-themes": "0.4.6",
+    "nodemailer": "10.0.1",
+    "pdfjs-dist": "6.3.289",
+    "pino": "10.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "7.87.0",
+    "recharts": "3.10.1",
+    "resend": "6.26.0",
+    "sonner": "2.0.8",
+    "tailwind-merge": "3.6.0",
+    "tesseract.js": "7.0.0",
+    "workflow": "4.8.5",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "26.5.0",
+    "@types/nodemailer": "8.0.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "5.1.1",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.4",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "prisma": "7.10.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.13",
+    "typescript": "6.0.2",
+    "vite": "7.3.1",
+    "vitest": "4.1.0"
+  }
+}

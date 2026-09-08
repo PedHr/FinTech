@@ -1,0 +1,5 @@
+"use server";
+import { revalidatePath } from "next/cache"; import { z } from "zod";
+import { requireSession } from "@/server/auth/session"; import { createRecurrence } from "@/server/recurrences/service"; import { parseForm, safeAction } from "@/shared/lib/action";
+const schema = z.object({ accountId: z.string().uuid(), categoryId: z.string().uuid().optional().or(z.literal("")), description: z.string().trim().min(2).max(160), amount: z.string().regex(/^\d{1,15}([.,]\d{1,4})?$/), kind: z.enum(["INCOME", "EXPENSE"]), unit: z.enum(["DAY", "WEEK", "MONTH", "YEAR"]), interval: z.coerce.number().int().min(1).max(365), startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")) });
+export async function createRecurringAction(formData: FormData) { return safeAction(async () => { const session = await requireSession(); const input = parseForm(schema, formData); const item = await createRecurrence({ userId: session.user.id }, { ...input, categoryId: input.categoryId || undefined, endsOn: input.endsOn || undefined }); revalidatePath("/transacoes"); return { id: item.id }; }); }

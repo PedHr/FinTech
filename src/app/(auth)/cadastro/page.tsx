@@ -1,0 +1,5 @@
+import type { Metadata } from "next";
+import { AuthForm } from "@/features/auth/auth-form";
+
+export const metadata: Metadata = { title: "Cadastro" };
+export default function SignUpPage() { return <AuthForm mode="sign-up" />; }

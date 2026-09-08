@@ -1,0 +1,82 @@
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { requireSession } from "@/server/auth/session";
+import { createImportRecord } from "@/server/imports/service";
+import { storageProvider } from "@/server/storage/provider";
+import { enqueueInvoiceImport } from "@/server/workflows/invoice-import";
+import { uploadPayloadSchema } from "@/features/imports/schemas";
+import { env } from "@/shared/lib/env";
+import { AppError, publicError, requestId } from "@/shared/lib/result";
+import { rateLimit } from "@/server/security/rate-limit";
+import { withTenant } from "@/server/database/tenant";
+import { z } from "zod";
+import { validateRequestOrigin } from "@/server/security/origin";
+
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+function responseError(error: unknown) {
+  const id = requestId();
+  const body = publicError(error, id);
+  const status = error instanceof AppError ? error.status : 500;
+  return Response.json({ error: body }, { status });
+}
+
+export async function POST(request: Request) {
+  try {
+    validateRequestOrigin(request);
+    const session = await requireSession();
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const limit = await rateLimit(`upload:${session.user.id}:${ip}`, 10, 3600);
+    if (!limit.success) throw new AppError("RATE_LIMITED", "Limite de uploads atingido. Tente novamente mais tarde.", 429);
+    const contentType = request.headers.get("content-type") ?? "";
+
+    if (contentType.includes("multipart/form-data")) {
+      if (env().STORAGE_DRIVER !== "local") throw new AppError("INVALID_PDF", "Use o upload direto configurado para produção.");
+      const form = await request.formData();
+      const file = form.get("file");
+      const payload = uploadPayloadSchema.parse({ creditCardId: form.get("creditCardId"), displayName: file instanceof File ? file.name : "" });
+      if (!(file instanceof File) || file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) throw new AppError("INVALID_PDF", "Envie um PDF de até 10 MB.");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") throw new AppError("INVALID_PDF", "O conteúdo enviado não é um PDF válido.");
+      const storageKey = `imports/${crypto.randomUUID()}.pdf`;
+      await storageProvider().put(storageKey, bytes, "application/pdf");
+      try {
+        const imported = await createImportRecord({ userId: session.user.id }, { ...payload, storageKey, sizeBytes: file.size, mimeType: file.type });
+        const runId = await enqueueInvoiceImport(session.user.id, imported.id);
+        return Response.json({ id: imported.id, runId }, { status: 202 });
+      } catch (error) {
+        await storageProvider().delete(storageKey);
+        throw error;
+      }
+    }
+
+    if (env().STORAGE_DRIVER !== "vercel-blob") throw new AppError("INVALID_PDF", "Upload direto não está habilitado neste ambiente.");
+    const body = await request.json() as HandleUploadBody;
+    const result = await handleUpload({
+      request,
+      body,
+      token: env().BLOB_READ_WRITE_TOKEN,
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        const payload = uploadPayloadSchema.parse(JSON.parse(clientPayload ?? "{}"));
+        if (!pathname.startsWith("imports/") || !pathname.toLowerCase().endsWith(".pdf")) throw new AppError("INVALID_PDF", "Caminho de upload inválido.");
+        return {
+          allowedContentTypes: ["application/pdf"], maximumSizeInBytes: 10 * 1024 * 1024,
+          addRandomSuffix: true, allowOverwrite: false, tokenPayload: JSON.stringify({ ...payload, userId: session.user.id }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        const payload = uploadPayloadSchema.extend({ userId: z.string().uuid() }).parse(JSON.parse(tokenPayload ?? "{}"));
+        const existing = await withTenant({ userId: payload.userId }, (tx) =>
+          tx.importedFile.findFirst({ where: { userId: payload.userId, storageKey: blob.pathname }, select: { id: true } }),
+        );
+        if (existing) return;
+        const metadata = await import("@vercel/blob").then(({ head }) => head(blob.pathname));
+        const imported = await createImportRecord({ userId: payload.userId }, { creditCardId: payload.creditCardId, displayName: payload.displayName, storageKey: blob.pathname, sizeBytes: metadata.size, mimeType: metadata.contentType });
+        await enqueueInvoiceImport(payload.userId, imported.id);
+      },
+    });
+    return Response.json(result);
+  } catch (error) {
+    return responseError(error);
+  }
+}

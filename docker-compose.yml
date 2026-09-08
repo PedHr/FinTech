@@ -1,0 +1,54 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+    command: sh -c "pnpm db:generate && pnpm db:deploy && pnpm dev --hostname 0.0.0.0"
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      APP_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-only-change-this-32-character-secret}
+      DATABASE_URL: postgresql://fincontrol:fincontrol@postgres:5432/fincontrol?schema=public
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_PATH: /app/.data/uploads
+      EMAIL_DRIVER: smtp
+      EMAIL_FROM: FinControl <no-reply@finance.local>
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      CRON_SECRET: ${CRON_SECRET:-local-cron-secret-change-me}
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - private_uploads:/app/.data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fincontrol
+      POSTGRES_USER: fincontrol
+      POSTGRES_PASSWORD: fincontrol
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fincontrol -d fincontrol"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  app_node_modules:
+  postgres_data:
+  private_uploads:
