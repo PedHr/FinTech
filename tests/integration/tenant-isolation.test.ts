@@ -59,4 +59,25 @@ suite("isolamento de tenant no PostgreSQL", () => {
 
     expect(response.status).toBe(401);
   });
+
+  it("cria usuários de autenticação com IDs UUID compatíveis com o PostgreSQL", async () => {
+    const { auth } = await import("@/server/auth/config");
+    const email = `signup-${crypto.randomUUID()}@example.com`;
+
+    const response = await auth.handler(new Request("http://localhost:3000/api/auth/sign-up/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+      body: JSON.stringify({
+        name: "Cadastro UUID",
+        email,
+        password: "integration-password-with-12-characters",
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    const createdUser = await prisma.user.findUniqueOrThrow({ where: { email } });
+    expect(createdUser.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+
+    await prisma.user.delete({ where: { id: createdUser.id } });
+  });
 });
