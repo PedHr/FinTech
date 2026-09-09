@@ -18,9 +18,6 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "2mb",
     },
   },
-  outputFileTracingIncludes: {
-    "/api/imports/**/*": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/tesseract.js/**/*"],
-  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
