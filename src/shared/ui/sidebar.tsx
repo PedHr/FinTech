@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowLeftRight, BarChart3, CreditCard, FileSearch, FileText,
@@ -43,13 +43,11 @@ function Navigation({ close }: { close?: () => void }) {
 
 export function Sidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
 
   async function signOut() {
     await authClient.signOut();
-    router.push("/entrar");
-    router.refresh();
+    window.location.replace("/entrar");
   }
 
   const content = (

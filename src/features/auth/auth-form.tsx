@@ -35,8 +35,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       if (mode === "sign-up") {
         router.push(`/verificar-email?email=${encodeURIComponent(email)}`);
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        window.location.replace("/dashboard");
       }
     } catch {
       toast.error("Não foi possível conectar ao serviço. Tente novamente.");

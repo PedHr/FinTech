@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/ui/button";
@@ -22,7 +21,6 @@ export function PasswordResetRequestForm() {
 
 export function PasswordResetForm({ token }: { token: string }) {
   const [pending, setPending] = useState(false);
-  const router = useRouter();
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -31,8 +29,7 @@ export function PasswordResetForm({ token }: { token: string }) {
     setPending(false);
     if (response.error) return toast.error("O link expirou ou não é válido.");
     toast.success("Senha alterada. Você já pode entrar.");
-    router.push("/entrar");
-    router.refresh();
+    window.location.replace("/entrar");
   }
   return <form className="mt-8 grid gap-5" method="post" onSubmit={submit}><Field label="Nova senha"><Input name="password" type="password" minLength={12} maxLength={128} required /></Field><Button disabled={pending}>{pending ? "Salvando..." : "Redefinir senha"}</Button></form>;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { completeOnboardingAction } from "./actions";
@@ -8,7 +7,6 @@ import { Button } from "@/shared/ui/button";
 import { Field, Input, Select } from "@/shared/ui/form-controls";
 
 export function OnboardingForm() {
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setPending(true);
@@ -16,7 +14,7 @@ export function OnboardingForm() {
     setPending(false);
     if (!result.ok) return toast.error(result.error.message);
     toast.success("Sua primeira conta está pronta.");
-    router.push("/dashboard"); router.refresh();
+    window.location.replace("/dashboard");
   }
   return <form className="mt-8 grid gap-5" onSubmit={submit}>
     <Field label="Instituição"><Input name="institutionName" placeholder="Ex.: Nubank" required /></Field>

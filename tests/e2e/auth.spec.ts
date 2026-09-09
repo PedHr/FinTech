@@ -15,6 +15,45 @@ test("apresenta login real e link de cadastro", async ({ page }) => {
   await expect(page.getByRole("link", { name: /cadastre-se/i })).toBeVisible();
 });
 
+test("redireciona para o dashboard depois que o login é aceito", async ({ page }) => {
+  await page.route("**/api/auth/sign-in/email", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      redirect: false,
+      token: "test-session-token",
+      url: null,
+      user: {
+        id: "00000000-0000-4000-8000-000000000000",
+        name: "Usuário de teste",
+        email: "login@example.com",
+        emailVerified: true,
+        image: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        defaultCurrency: "BRL",
+        timezone: "America/Sao_Paulo",
+        theme: "SYSTEM",
+        onboardingCompletedAt: null,
+        consentedAt: null,
+      },
+    }),
+  }));
+  await page.route("**/dashboard", (route) => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "<h1>Dashboard carregado</h1>",
+  }));
+
+  await page.goto("/entrar");
+  await page.getByLabel(/e-mail/i).fill("login@example.com");
+  await page.getByLabel(/senha/i).fill("test-password-with-12-characters");
+  await page.getByRole("button", { name: "Entrar" }).click();
+
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Dashboard carregado" })).toBeVisible();
+});
+
 for (const path of ["/entrar", "/cadastro", "/recuperar-senha"]) {
   test(`aplica o nonce da CSP a todos os scripts em ${path}`, async ({ request }) => {
     const response = await request.get(path);
