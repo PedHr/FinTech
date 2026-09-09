@@ -5,6 +5,7 @@ import { prisma } from "@/server/database/client";
 import { sendEmail } from "@/server/email/service";
 import { env } from "@/shared/lib/env";
 import { hashPassword, verifyPassword } from "./password";
+import { getTrustedAuthOrigins } from "./trusted-origins";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 
 const config = env();
@@ -13,7 +14,7 @@ export const auth = betterAuth({
   appName: "FinControl",
   secret: config.BETTER_AUTH_SECRET,
   baseURL: config.APP_URL,
-  trustedOrigins: [config.APP_URL],
+  trustedOrigins: getTrustedAuthOrigins(config.APP_URL),
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   user: {
     modelName: "user",
