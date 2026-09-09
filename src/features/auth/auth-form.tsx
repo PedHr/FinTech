@@ -39,7 +39,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     <div>
       <h1 className="text-3xl font-bold tracking-tight">{mode === "sign-in" ? "Que bom ver você" : "Crie sua conta"}</h1>
       <p className="muted mt-2">{mode === "sign-in" ? "Entre para acessar sua vida financeira." : "Comece com segurança em poucos minutos."}</p>
-      <form className="mt-8 grid gap-5" onSubmit={submit}>
+      <form className="mt-8 grid gap-5" method="post" onSubmit={submit}>
         {mode === "sign-up" ? <Field label="Nome"><Input name="name" autoComplete="name" minLength={2} maxLength={80} required /></Field> : null}
         <Field label="E-mail"><Input name="email" type="email" autoComplete="email" required /></Field>
         <Field label="Senha"><Input name="password" type="password" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} minLength={12} maxLength={128} required /></Field>

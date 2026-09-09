@@ -17,7 +17,7 @@ export function PasswordResetRequestForm() {
     setPending(false);
     toast.success("Se o e-mail estiver cadastrado, você receberá as instruções.");
   }
-  return <form className="mt-8 grid gap-5" onSubmit={submit}><Field label="E-mail"><Input name="email" type="email" required /></Field><Button disabled={pending}>{pending ? "Enviando..." : "Enviar instruções"}</Button></form>;
+  return <form className="mt-8 grid gap-5" method="post" onSubmit={submit}><Field label="E-mail"><Input name="email" type="email" required /></Field><Button disabled={pending}>{pending ? "Enviando..." : "Enviar instruções"}</Button></form>;
 }
 
 export function PasswordResetForm({ token }: { token: string }) {
@@ -34,5 +34,5 @@ export function PasswordResetForm({ token }: { token: string }) {
     router.push("/entrar");
     router.refresh();
   }
-  return <form className="mt-8 grid gap-5" onSubmit={submit}><Field label="Nova senha"><Input name="password" type="password" minLength={12} maxLength={128} required /></Field><Button disabled={pending}>{pending ? "Salvando..." : "Redefinir senha"}</Button></form>;
+  return <form className="mt-8 grid gap-5" method="post" onSubmit={submit}><Field label="Nova senha"><Input name="password" type="password" minLength={12} maxLength={128} required /></Field><Button disabled={pending}>{pending ? "Salvando..." : "Redefinir senha"}</Button></form>;
 }
