@@ -18,20 +18,30 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "").trim().toLowerCase();
     const password = String(form.get("password") ?? "");
-    const response = mode === "sign-up"
-      ? await authClient.signUp.email({ name: String(form.get("name") ?? "").trim(), email, password })
-      : await authClient.signIn.email({ email, password, rememberMe: true });
-    setPending(false);
+    try {
+      const response = mode === "sign-up"
+        ? await authClient.signUp.email({ name: String(form.get("name") ?? "").trim(), email, password })
+        : await authClient.signIn.email({ email, password, rememberMe: true });
 
-    if (response.error) {
-      toast.error(mode === "sign-in" ? "E-mail ou senha inválidos." : response.error.message ?? "Não foi possível criar a conta.");
-      return;
-    }
-    if (mode === "sign-up") {
-      router.push(`/verificar-email?email=${encodeURIComponent(email)}`);
-    } else {
-      router.push("/dashboard");
-      router.refresh();
+      if (response.error) {
+        if (response.error.status === 429) {
+          toast.error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+          return;
+        }
+
+        toast.error(mode === "sign-in" ? "E-mail ou senha inválidos." : "Não foi possível criar a conta. Verifique os dados e tente novamente.");
+        return;
+      }
+      if (mode === "sign-up") {
+        router.push(`/verificar-email?email=${encodeURIComponent(email)}`);
+      } else {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch {
+      toast.error("Não foi possível conectar ao serviço. Tente novamente.");
+    } finally {
+      setPending(false);
     }
   }
 

@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+test("serve o favicon sem erro", async ({ request }) => {
+  const response = await request.get("/favicon.ico");
+
+  expect(response.ok()).toBe(true);
+  expect(response.headers()["content-type"]).toContain("image/svg+xml");
+});
+
 test("apresenta login real e link de cadastro", async ({ page }) => {
   await page.goto("/entrar");
   await expect(page.getByRole("heading", { name: /que bom ver você/i })).toBeVisible();
