@@ -76,7 +76,6 @@ export const auth = betterAuth({
   advanced: {
     useSecureCookies: config.NODE_ENV === "production",
     cookiePrefix: "fincontrol",
-    database: { joins: true },
     defaultCookieAttributes: {
       httpOnly: true,
       sameSite: "lax",

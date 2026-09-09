@@ -12,6 +12,8 @@ suite("isolamento de tenant no PostgreSQL", () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = databaseUrl!;
     process.env.BETTER_AUTH_SECRET ||= "integration-test-secret-at-least-32-characters";
+    process.env.APP_URL = "http://localhost:3000";
+    process.env.EMAIL_DRIVER = "console";
     ({ prisma } = await import("@/server/database/client"));
     ({ withTenant } = await import("@/server/database/tenant"));
     await prisma.user.createMany({
@@ -41,5 +43,20 @@ suite("isolamento de tenant no PostgreSQL", () => {
     await expect(withTenant({ userId: userB }, (tx) => tx.financialAccount.create({
       data: { userId: userB, institutionId: institution.id, name: "Conta inválida", type: "CHECKING", openingDate: new Date("2026-01-01T00:00:00Z") },
     }))).rejects.toThrow();
+  });
+
+  it("consulta credenciais pelo adaptador sem depender de nomes de relações Prisma", async () => {
+    const { auth } = await import("@/server/auth/config");
+    const response = await auth.handler(new Request("http://localhost:3000/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+      body: JSON.stringify({
+        email: `${crypto.randomUUID()}@test.local`,
+        password: "invalid-password-with-12-characters",
+        rememberMe: false,
+      }),
+    }));
+
+    expect(response.status).toBe(401);
   });
 });
