@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/shared/ui/button";
 import { Field, Input } from "@/shared/ui/form-controls";
 
+const subscribeToHydration = () => () => {};
+
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
+  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const [pending, setPending] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -53,7 +56,9 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         <Field label="E-mail"><Input name="email" type="email" autoComplete="email" required /></Field>
         <Field label="Senha"><Input name="password" type="password" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} minLength={12} maxLength={128} required /></Field>
         {mode === "sign-in" ? <Link className="-mt-2 text-right text-sm font-medium text-[var(--primary)]" href="/recuperar-senha">Esqueci minha senha</Link> : null}
-        <Button className="w-full" type="submit" disabled={pending}>{pending ? "Aguarde..." : mode === "sign-in" ? "Entrar" : "Criar conta"}</Button>
+        <Button className="w-full" type="submit" disabled={!hydrated || pending}>
+          {!hydrated ? "Carregando..." : pending ? "Aguarde..." : mode === "sign-in" ? "Entrar" : "Criar conta"}
+        </Button>
       </form>
       <p className="muted mt-6 text-center text-sm">
         {mode === "sign-in" ? "Ainda não tem conta? " : "Já tem uma conta? "}

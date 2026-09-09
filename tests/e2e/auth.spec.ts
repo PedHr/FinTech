@@ -48,7 +48,9 @@ test("redireciona para o dashboard depois que o login é aceito", async ({ page 
   await page.goto("/entrar");
   await page.getByLabel(/e-mail/i).fill("login@example.com");
   await page.getByLabel(/senha/i).fill("test-password-with-12-characters");
-  await page.getByRole("button", { name: "Entrar" }).click();
+  const submitButton = page.getByRole("button", { name: "Entrar" });
+  await expect(submitButton).toBeEnabled();
+  await submitButton.click();
 
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Dashboard carregado" })).toBeVisible();
