@@ -95,7 +95,7 @@ Defina `DATABASE_URL` para o papel restrito usado pela aplicação. `DIRECT_URL`
 
 ## Variáveis de ambiente
 
-Consulte `.env.example`. As obrigatórias são `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ caracteres) e `APP_URL`. Em produção também são exigidos `STORAGE_DRIVER=vercel-blob`, `BLOB_READ_WRITE_TOKEN`, `EMAIL_DRIVER=resend` e `RESEND_API_KEY`.
+Consulte `.env.example`. As obrigatórias são `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ caracteres) e `APP_URL`. Em produção também são exigidos `STORAGE_DRIVER=vercel-blob` e `BLOB_READ_WRITE_TOKEN`. Para cadastro, verificação de e-mail e recuperação de senha funcionarem por completo, configure `EMAIL_DRIVER=resend` e uma `RESEND_API_KEY` válida. Sem a chave, as páginas e sessões continuam disponíveis, mas operações que enviam e-mail falham de forma controlada.
 
 - `LOCAL_STORAGE_PATH`: diretório privado no desenvolvimento.
 - `CRON_SECRET`: autentica rotinas de recorrência e retenção.
