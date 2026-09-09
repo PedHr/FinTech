@@ -5,6 +5,7 @@ import { prisma } from "@/server/database/client";
 import { sendEmail } from "@/server/email/service";
 import { env } from "@/shared/lib/env";
 import { hashPassword, verifyPassword } from "./password";
+import { AUTH_COOKIE_PREFIX } from "./constants";
 import { getTrustedAuthOrigins } from "./trusted-origins";
 import { consumeRateLimit } from "@/server/security/rate-limit";
 
@@ -79,7 +80,7 @@ export const auth = betterAuth({
       generateId: "uuid",
     },
     useSecureCookies: config.NODE_ENV === "production",
-    cookiePrefix: "fincontrol",
+    cookiePrefix: AUTH_COOKIE_PREFIX,
     defaultCookieAttributes: {
       httpOnly: true,
       sameSite: "lax",

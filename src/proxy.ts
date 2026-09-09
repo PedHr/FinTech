@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { AUTH_COOKIE_PREFIX } from "@/server/auth/constants";
 
 const protectedPrefixes = [
   "/dashboard",
@@ -33,7 +34,7 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
   const isProtected = protectedPrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix));
-  if (isProtected && !getSessionCookie(request)) {
+  if (isProtected && !getSessionCookie(request, { cookiePrefix: AUTH_COOKIE_PREFIX })) {
     const target = new URL("/entrar", request.url);
     target.searchParams.set("callbackUrl", request.nextUrl.pathname);
     const response = NextResponse.redirect(target);
