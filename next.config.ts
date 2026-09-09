@@ -11,7 +11,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   serverExternalPackages: ["@napi-rs/canvas", "tesseract.js", "pdfjs-dist"],
   experimental: {
     serverActions: {

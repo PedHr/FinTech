@@ -3,6 +3,7 @@ import { defineConfig, env } from "prisma/config";
 
 const databaseUrl =
   process.env.DIRECT_URL ||
+  process.env.DATABASE_URL_UNPOOLED ||
   process.env.DATABASE_URL ||
   (process.env.VERCEL === "1" || process.env.FINCONTROL_BUILD === "1"
     ? "postgresql://build:build@127.0.0.1:5432/build"
