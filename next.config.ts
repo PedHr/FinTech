@@ -11,6 +11,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: process.env.VERCEL === "1" ? undefined : "standalone",
   serverExternalPackages: ["@napi-rs/canvas", "tesseract.js", "pdfjs-dist"],
   experimental: {
     serverActions: {

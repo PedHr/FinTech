@@ -30,7 +30,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "cross-env FINCONTROL_BUILD=1 prisma generate && cross-env FINCONTROL_BUILD=1 next build --webpack",
+    "build": "cross-env FINCONTROL_BUILD=1 prisma generate && cross-env FINCONTROL_BUILD=1 next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",

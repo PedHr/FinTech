@@ -166,4 +166,6 @@ A produção foi desenhada para ser operada em um único projeto e painel Vercel
 7. Publique com `pnpm dlx vercel@latest --prod`. `withWorkflow` registra o workflow durável; `vercel.json` agenda recorrências e retenção com [Vercel Cron](https://vercel.com/docs/cron-jobs).
 8. Valide login, download autenticado, OCR, CSP, RLS, backups e restauração em um preview protegido antes de promover.
 
+Enquanto a regressão de empacotamento de funções do Vercel CLI 54.19+ estiver aberta, o projeto Vercel deve manter `VERCEL_CLI_VERSION=vercel@54.14.0`. Essa é uma mitigação temporária de plataforma; remova a variável depois que a correção for publicada. O modo `standalone` é habilitado apenas fora da Vercel para conservar o build Docker local.
+
 O `Dockerfile` e o Compose existem apenas para desenvolvimento/testes locais; nenhum deles é necessário ou usado na hospedagem Vercel.
