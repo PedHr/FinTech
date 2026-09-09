@@ -11,6 +11,7 @@ services:
       APP_URL: http://localhost:3000
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-only-change-this-32-character-secret}
       DATABASE_URL: postgresql://fincontrol:fincontrol@postgres:5432/fincontrol?schema=public
+      DIRECT_URL: postgresql://fincontrol:fincontrol@postgres:5432/fincontrol?schema=public
       STORAGE_DRIVER: local
       LOCAL_STORAGE_PATH: /app/.data/uploads
       EMAIL_DRIVER: smtp
