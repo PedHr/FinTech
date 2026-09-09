@@ -53,9 +53,6 @@ export function env() {
     if (result.data.STORAGE_DRIVER !== "vercel-blob" || !result.data.BLOB_READ_WRITE_TOKEN) {
       throw new Error("Produção exige Vercel Blob privado configurado.");
     }
-    if (result.data.EMAIL_DRIVER !== "resend" || !result.data.RESEND_API_KEY) {
-      throw new Error("Produção exige o provedor de e-mail Resend configurado.");
-    }
   }
 
   cached = result.data;

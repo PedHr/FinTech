@@ -12,6 +12,10 @@ export async function sendEmail(message: Email) {
     return;
   }
   if (config.EMAIL_DRIVER === "resend") {
+    if (!config.RESEND_API_KEY?.startsWith("re_")) {
+      logger.error({}, "Provedor de e-mail não configurado");
+      throw new Error("Serviço de e-mail temporariamente indisponível.");
+    }
     const resend = new Resend(config.RESEND_API_KEY);
     const response = await resend.emails.send({ from: config.EMAIL_FROM, ...message });
     if (response.error) throw new Error("Falha no provedor de e-mail.");
