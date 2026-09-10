@@ -51,10 +51,15 @@ test.afterAll(async () => {
     [userId],
   );
   const storageRoot = path.resolve(".data/uploads");
-  for (const file of result.rows) {
-    const target = path.resolve(storageRoot, file.storageKey);
-    if (target.startsWith(`${storageRoot}${path.sep}`)) {
-      await unlink(target).catch(() => undefined);
+  if (process.env.PLAYWRIGHT_BASE_URL && result.rows.length > 0) {
+    const { del } = await import("@vercel/blob");
+    await del(result.rows.map((file) => file.storageKey));
+  } else {
+    for (const file of result.rows) {
+      const target = path.resolve(storageRoot, file.storageKey);
+      if (target.startsWith(`${storageRoot}${path.sep}`)) {
+        await unlink(target).catch(() => undefined);
+      }
     }
   }
   await pool.query(`delete from users where id = $1`, [userId]);
@@ -68,6 +73,8 @@ test("importa um PDF real, confirma as transações e trata duplicidade", async 
     <html lang="pt-BR">
       <body><pre style="font: 18px monospace; line-height: 1.8">
 FATURA 2026
+10/07 Saldo restante da fatura anterior R$ 0,00
+10/07 Saldo restante da fatura anterior R$ 0,00
 15/07 LOJA TESTE PDF R$ 35,90
 16/07 MERCADO E2E 120,50
 17/07 PAGAMENTO FATURA -156,40
@@ -79,7 +86,13 @@ FATURA 2026
   await page.goto("/entrar");
   await page.getByLabel(/e-mail/i).fill(email);
   await page.getByLabel(/senha/i).fill(password);
+  const signInResponsePromise = page.waitForResponse((response) => response.url().includes("/api/auth/sign-in/email"));
   await page.getByRole("button", { name: "Entrar" }).click();
+  const signInResponse = await signInResponsePromise;
+  const signInError = signInResponse.status() === 200
+    ? ""
+    : await signInResponse.text().catch(() => "Resposta sem corpo.");
+  expect(signInResponse.status(), signInError).toBe(200);
   await page.waitForURL(/\/onboarding$/, { waitUntil: "commit" });
 
   await page.getByLabel("Instituição").fill("Banco de Teste");

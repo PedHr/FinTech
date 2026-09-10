@@ -59,7 +59,7 @@ function parseRows(input: ExtractedDocument) {
     }
 
     const amount = amountFrom(line);
-    if (!amount || !currentDate) continue;
+    if (!amount || amount.isZero() || !currentDate) continue;
     const hasCard = cardRowPattern.test(line);
     const hasPayment = /\bPAGAMENT[OA]|PAGAMENTO\s+RECEBIDO\b/i.test(line);
     const hasRefund = /\bESTORNO|CANCELAMENT[OA]|CR[ÉE]DITO\b/i.test(line);
@@ -84,7 +84,7 @@ function parseRows(input: ExtractedDocument) {
 
 export const nubankParser: BankStatementParser = {
   key: "nubank-credit-card",
-  version: "1.0.0",
+  version: "1.1.0",
   async supports({ text, selectedInstitution }) {
     const selectedNubank = /\bNUBANK\b/i.test(selectedInstitution ?? "");
     const documentNubank = /\bNUBANK\b/i.test(text);

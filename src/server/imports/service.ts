@@ -120,11 +120,19 @@ export async function processInvoiceImport(userId: string, importId: string) {
     stage = "parse_document";
     assertInstitutionCompatibility(document.text, file.creditCard.account.institution?.name);
     const parsed = await parseDocument(document, file.creditCard.account.institution?.name);
+    const validTransactions = parsed.result.transactions.filter((item) => {
+      try {
+        const amount = new Decimal(item.amount);
+        return amount.isFinite() && amount.isPositive();
+      } catch {
+        return false;
+      }
+    });
 
     stage = "persist_drafts";
     await withTenant(context, async (tx) => {
       const rules = await tx.categorizationRule.findMany({ where: { userId, isActive: true }, orderBy: { priority: "asc" } });
-      for (const item of parsed.result.transactions) {
+      for (const item of validTransactions) {
         const normalized = normalizeText(item.description);
         const rule = rules.find((candidate) => matchesRule(normalized, normalizeText(candidate.pattern), candidate.matcher));
         const fingerprint = transactionFingerprint({
@@ -168,7 +176,7 @@ export async function processInvoiceImport(userId: string, importId: string) {
       }
       await tx.importedFile.update({
         where: { id: importId },
-        data: { status: "REVIEW_READY", parserKey: parsed.parser.key, parserVersion: parsed.parser.version, itemCount: parsed.result.transactions.length },
+        data: { status: "REVIEW_READY", parserKey: parsed.parser.key, parserVersion: parsed.parser.version, itemCount: validTransactions.length },
       });
     }, "Serializable");
   } catch (error) {

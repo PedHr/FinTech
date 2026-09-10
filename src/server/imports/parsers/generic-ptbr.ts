@@ -3,6 +3,7 @@ import type { BankStatementParser, ExtractedDocument, ParsedInvoice, ParsedItem 
 
 const linePattern = /^\s*(\d{2}[/.\-]\d{2}(?:[/.\-]\d{2,4})?|\d{2}\s+(?:JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ))\s+(.+?)\s+(-?(?:R\$\s*)?[\d.]+,\d{2})\s*$/i;
 const months: Record<string, number> = { JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6, JUL: 7, AGO: 8, SET: 9, OUT: 10, NOV: 11, DEZ: 12 };
+const summaryDescriptionPattern = /^(?:SALDO (?:RESTANTE )?DA FATURA ANTERIOR|SALDO ANTERIOR|TOTAL (?:DA )?FATURA)$/i;
 
 function parseDate(raw: string, referenceYear: number) {
   const numeric = raw.match(/^(\d{2})[/.\-](\d{2})(?:[/.\-](\d{2,4}))?$/);
@@ -31,7 +32,7 @@ function itemKind(description: string, negative: boolean): ParsedItem["kind"] {
 
 export const genericPtBrParser: BankStatementParser = {
   key: "generic-ptbr",
-  version: "1.0.0",
+  version: "1.1.0",
   async supports({ text }) {
     const matches = text.split(/\r?\n/).filter((line) => linePattern.test(line)).length;
     return { supported: matches > 0, confidence: Math.min(0.9, 0.35 + matches * 0.05) };
@@ -48,6 +49,10 @@ export const genericPtBrParser: BankStatementParser = {
       const rawAmount = amountValue(match[3]);
       const installmentMatch = match[2].match(/(?:PARC(?:ELA)?\s*)?(\d{1,3})\s*[\/]\s*(\d{1,3})\b/i);
       const description = match[2].replace(/(?:PARC(?:ELA)?\s*)?\d{1,3}\s*[\/]\s*\d{1,3}\b/i, "").trim();
+      // Some invoices repeat dated balance/total rows on every page. They are
+      // statement summaries rather than card activity. Zero-value rows also
+      // cannot become a transaction and must never reach the database.
+      if (rawAmount.isZero() || summaryDescriptionPattern.test(description)) continue;
       transactions.push({
         date,
         description,

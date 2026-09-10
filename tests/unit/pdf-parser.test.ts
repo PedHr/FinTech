@@ -25,6 +25,27 @@ describe("parser genérico pt-BR", () => {
     expect(parsed.transactions[2]?.kind).toBe("PAYMENT");
     expect(parsed.transactions[3]?.kind).toBe("REFUND");
   });
+
+  it("ignora saldos da fatura anterior, totais e lançamentos zerados", async () => {
+    const document = {
+      text: [
+        "FATURA 2026",
+        "10/07 Saldo restante da fatura anterior R$ 0,00",
+        "10/07 Saldo restante da fatura anterior R$ 123,45",
+        "10/07 Total da fatura R$ 123,45",
+        "11/07 VALIDACAO CARTAO R$ 0,00",
+        "12/07 COMPRA VALIDA R$ 42,90",
+      ].join("\n"),
+      pages: [],
+      pageCount: 1,
+      usedOcr: false,
+    };
+
+    const parsed = await genericPtBrParser.parse(document);
+
+    expect(parsed.transactions).toHaveLength(1);
+    expect(parsed.transactions[0]).toMatchObject({ description: "COMPRA VALIDA", amount: "42.90" });
+  });
 });
 
 describe("parser de fatura Nubank", () => {
