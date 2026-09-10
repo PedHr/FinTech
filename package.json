@@ -69,7 +69,6 @@
     "sonner": "2.0.8",
     "tailwind-merge": "3.6.0",
     "tesseract.js": "7.0.0",
-    "workflow": "4.8.5",
     "zod": "4.5.4"
   },
   "devDependencies": {
