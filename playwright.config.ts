@@ -11,9 +11,15 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: "pnpm dev",
+    command: "corepack pnpm dev",
     url: "http://127.0.0.1:3000/entrar",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      APP_URL: "http://127.0.0.1:3000",
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "playwright-only-secret-with-at-least-32-characters",
+      STORAGE_DRIVER: "local",
+    },
   },
 });

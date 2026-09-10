@@ -73,16 +73,46 @@ export async function processInvoiceImport(userId: string, importId: string) {
     }
     stage = "hash_file";
     const fileHash = createHash("sha256").update(bytes).digest("hex");
-    stage = "detect_duplicate";
-    const duplicate = await withTenant(context, (tx) => tx.importedFile.findFirst({ where: { userId, fileHash, id: { not: importId } }, select: { id: true } }));
+    stage = "claim_file_hash";
+    const duplicate = await withTenant(context, async (tx) => {
+      // Serialize equal files for this tenant. The unique constraint remains a
+      // final guard, while the advisory lock gives concurrent uploads a
+      // deterministic winner instead of turning one of them into a failure.
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${`${userId}:${fileHash}`}, 0))`;
+      const existing = await tx.importedFile.findFirst({
+        where: {
+          userId,
+          fileHash,
+          id: { not: importId },
+          status: { notIn: ["FAILED", "CANCELLED", "DUPLICATE_FILE"] },
+        },
+        select: { id: true },
+      });
+      if (existing) return existing;
+
+      // Hashes from unsuccessful attempts must not permanently block the same
+      // document after the parser or infrastructure issue has been fixed.
+      await tx.importedFile.updateMany({
+        where: {
+          userId,
+          fileHash,
+          id: { not: importId },
+          status: { in: ["FAILED", "CANCELLED", "DUPLICATE_FILE"] },
+        },
+        data: { fileHash: null },
+      });
+      await tx.importedFile.update({ where: { id: importId }, data: { fileHash } });
+      return null;
+    }, "Serializable");
     if (duplicate) {
-      await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { fileHash, status: "DUPLICATE_FILE", errorCode: "DUPLICATE_FILE", errorMessage: "Este PDF já foi importado." } }));
+      await withTenant(context, (tx) => tx.importedFile.update({
+        where: { id: importId },
+        data: { fileHash: null, status: "DUPLICATE_FILE", errorCode: "DUPLICATE_FILE", errorMessage: "Este PDF já foi importado." },
+      }));
       await storage.delete(file.storageKey);
       await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { storageDeletedAt: new Date() } }));
       return;
     }
-    stage = "save_file_hash";
-    await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { fileHash } }));
     stage = "extract_document";
     const document = await extractDocument(bytes);
     if (document.usedOcr) await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { status: "OCR" } }));
@@ -146,7 +176,10 @@ export async function processInvoiceImport(userId: string, importId: string) {
     const appError = error instanceof AppError ? error : new AppError("IMPORT_FAILED", "Não foi possível interpretar esta fatura.");
     const errorKind = error instanceof Error ? error.name.replace(/[^A-Za-z0-9_]/g, "").slice(0, 40) : "Unknown";
     const errorCode = appError.code === "IMPORT_FAILED" ? `IMPORT_FAILED_${stage}_${errorKind}` : appError.code;
-    await withTenant(context, (tx) => tx.importedFile.updateMany({ where: { id: importId, userId }, data: { status: "FAILED", errorCode, errorMessage: appError.message } })).catch(() => undefined);
+    await withTenant(context, (tx) => tx.importedFile.updateMany({
+      where: { id: importId, userId },
+      data: { status: "FAILED", fileHash: null, errorCode, errorMessage: appError.message },
+    })).catch(() => undefined);
   }
 }
 

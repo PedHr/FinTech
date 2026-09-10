@@ -5,7 +5,7 @@ import { AppError, publicError, requestId } from "@/shared/lib/result";
 import { validateRequestOrigin } from "@/server/security/origin";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const responseRequestId = requestId();

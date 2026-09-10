@@ -206,10 +206,10 @@ export async function transactionList(context: TenantContext, filters: Transacti
 export async function financeOptions(context: TenantContext) {
   return withTenant(context, async (tx) => {
     const [accounts, institutions, categories, cards] = await Promise.all([
-      tx.financialAccount.findMany({ where: { userId: context.userId, archivedAt: null }, orderBy: { name: "asc" } }),
-      tx.institution.findMany({ where: { userId: context.userId, archivedAt: null }, orderBy: { name: "asc" } }),
-      tx.category.findMany({ where: { userId: context.userId, archivedAt: null }, orderBy: { name: "asc" } }),
-      tx.creditCard.findMany({ where: { userId: context.userId, archivedAt: null }, include: { account: true } }),
+      tx.financialAccount.findMany({ where: { userId: context.userId, archivedAt: null }, select: { id: true, name: true, type: true }, orderBy: { name: "asc" } }),
+      tx.institution.findMany({ where: { userId: context.userId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      tx.category.findMany({ where: { userId: context.userId, archivedAt: null }, select: { id: true, name: true, color: true, isDefault: true, kind: true }, orderBy: { name: "asc" } }),
+      tx.creditCard.findMany({ where: { userId: context.userId, archivedAt: null }, select: { id: true, account: { select: { id: true, name: true } } } }),
     ]);
     return { accounts, institutions, categories, cards };
   });
