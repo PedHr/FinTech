@@ -13,6 +13,7 @@ describe("proxy de rotas autenticadas", () => {
 
     expect(response.headers.get("location")).toBeNull();
     expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("content-security-policy")).toContain("connect-src 'self' https://vercel.com https://*.vercel-storage.com");
   });
 
   it("redireciona quando o cookie de sessão não existe", () => {

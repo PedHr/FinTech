@@ -21,16 +21,26 @@ function responseError(error: unknown) {
   return Response.json({ error: body }, { status });
 }
 
+async function requireUploadInitiator(request: Request) {
+  validateRequestOrigin(request);
+  const session = await requireSession();
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const limit = await rateLimit(`upload:${session.user.id}:${ip}`, 10, 3600);
+  if (!limit.success) throw new AppError("RATE_LIMITED", "Limite de uploads atingido. Tente novamente mais tarde.", 429);
+  return session;
+}
+
 export async function POST(request: Request) {
   try {
-    validateRequestOrigin(request);
-    const session = await requireSession();
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const limit = await rateLimit(`upload:${session.user.id}:${ip}`, 10, 3600);
-    if (!limit.success) throw new AppError("RATE_LIMITED", "Limite de uploads atingido. Tente novamente mais tarde.", 429);
     const contentType = request.headers.get("content-type") ?? "";
+    const isMultipart = contentType.includes("multipart/form-data");
+    const blobEvent = isMultipart ? null : await request.clone().json() as HandleUploadBody;
+    // Vercel sends the completion callback without the browser's session cookie.
+    // handleUpload verifies its x-vercel-signature before invoking our callback.
+    const session = blobEvent?.type === "blob.upload-completed" ? null : await requireUploadInitiator(request);
 
-    if (contentType.includes("multipart/form-data")) {
+    if (isMultipart) {
+      if (!session) throw new AppError("UNAUTHORIZED", "AutenticaÃ§Ã£o necessÃ¡ria.", 401);
       if (env().STORAGE_DRIVER !== "local") throw new AppError("INVALID_PDF", "Use o upload direto configurado para produção.");
       const form = await request.formData();
       const file = form.get("file");
@@ -51,12 +61,12 @@ export async function POST(request: Request) {
     }
 
     if (env().STORAGE_DRIVER !== "vercel-blob") throw new AppError("INVALID_PDF", "Upload direto não está habilitado neste ambiente.");
-    const body = await request.json() as HandleUploadBody;
     const result = await handleUpload({
       request,
-      body,
+      body: blobEvent!,
       token: env().BLOB_READ_WRITE_TOKEN,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
+        if (!session) throw new AppError("UNAUTHORIZED", "Authentication required.", 401);
         const payload = uploadPayloadSchema.parse(JSON.parse(clientPayload ?? "{}"));
         if (!pathname.startsWith("imports/") || !pathname.toLowerCase().endsWith(".pdf")) throw new AppError("INVALID_PDF", "Caminho de upload inválido.");
         return {
