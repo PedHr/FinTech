@@ -1,6 +1,5 @@
 import "server-only";
-import { createWorker } from "tesseract.js";
-import { createCanvas } from "@napi-rs/canvas";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { ExtractedDocument } from "./contracts";
 import { AppError } from "@/shared/lib/result";
 
@@ -49,7 +48,6 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number) {
 }
 
 export async function extractDocument(data: Uint8Array): Promise<ExtractedDocument> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   // pdfjs can transfer the supplied ArrayBuffer to its worker. Give it an
   // owned copy so a platform-specific stream implementation cannot detach the
   // bytes that were just read from private storage.
@@ -72,7 +70,7 @@ export async function extractDocument(data: Uint8Array): Promise<ExtractedDocume
 
   const pages: string[] = [];
   let usedOcr = false;
-  let worker: Awaited<ReturnType<typeof createWorker>> | undefined;
+  let worker: Awaited<ReturnType<(typeof import("tesseract.js"))["createWorker"]>> | undefined;
   try {
     for (let number = 1; number <= pdf.numPages; number += 1) {
       const page = await pdf.getPage(number);
@@ -80,6 +78,10 @@ export async function extractDocument(data: Uint8Array): Promise<ExtractedDocume
       let text = pageText(content.items);
       if (text.length < MIN_TEXT_PER_PAGE) {
         usedOcr = true;
+        const [{ createWorker }, { createCanvas }] = await Promise.all([
+          import("tesseract.js"),
+          import("@napi-rs/canvas"),
+        ]);
         worker ??= await createWorker(["por", "eng"]);
         const viewport = page.getViewport({ scale: 2 });
         if (viewport.width * viewport.height > MAX_RENDER_PIXELS) throw new AppError("INVALID_PDF", "Uma página do PDF possui dimensões acima do limite seguro.");
