@@ -12,7 +12,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   output: process.env.VERCEL === "1" ? undefined : "standalone",
-  serverExternalPackages: ["@napi-rs/canvas", "tesseract.js", "pdfjs-dist"],
+  serverExternalPackages: ["@napi-rs/canvas", "tesseract.js"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
