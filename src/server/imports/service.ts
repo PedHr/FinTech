@@ -53,12 +53,16 @@ export async function processInvoiceImport(userId: string, importId: string) {
   const context = { userId };
   const storage = storageProvider();
   try {
-    const file = await withTenant(context, (tx) => tx.importedFile.findFirst({
+    const claim = await withTenant(context, (tx) => tx.importedFile.updateMany({
       where: { id: importId, userId, status: { in: ["QUEUED", "FAILED"] } },
+      data: { status: "EXTRACTING", errorCode: null, errorMessage: null },
+    }));
+    if (claim.count === 0) return;
+    const file = await withTenant(context, (tx) => tx.importedFile.findFirst({
+      where: { id: importId, userId, status: "EXTRACTING" },
       include: { creditCard: { include: { account: { include: { institution: true } } } } },
     }));
     if (!file) return;
-    await withTenant(context, (tx) => tx.importedFile.update({ where: { id: file.id }, data: { status: "EXTRACTING", errorCode: null, errorMessage: null } }));
     const bytes = await storage.get(file.storageKey);
     if (bytes.byteLength > MAX_SIZE || new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") {
       throw new AppError("INVALID_PDF", "Este arquivo não possui uma estrutura PDF válida.");

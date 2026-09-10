@@ -19,6 +19,13 @@ async function lookupImport(pathname: string) {
   throw new Error("A confirmação do upload demorou além do esperado.");
 }
 
+async function processImport(id: string) {
+  const response = await fetch(`/api/imports/${id}/process`, { method: "POST" });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.message ?? "Não foi possível iniciar a análise da fatura.");
+  return body as { status: string; errorMessage?: string | null };
+}
+
 export function UploadForm({ cards, storageDriver }: { cards: CardOption[]; storageDriver: "local" | "vercel-blob" }) {
   const router = useRouter(); const inputRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false); const [file, setFile] = useState<File>();
@@ -37,6 +44,12 @@ export function UploadForm({ cards, storageDriver }: { cards: CardOption[]; stor
         const pathname = `imports/${crypto.randomUUID()}.pdf`;
         const blob = await upload(pathname, file, { access: "private", handleUploadUrl: "/api/imports/upload", clientPayload: JSON.stringify({ creditCardId, displayName: file.name }) });
         id = (await lookupImport(blob.pathname)).id;
+        const result = await processImport(id);
+        if (result.status === "FAILED") {
+          toast.error(result.errorMessage ?? "Não foi possível interpretar esta fatura.");
+          router.push(`/importacoes/${id}/revisao`); router.refresh();
+          return;
+        }
       }
       toast.success("Upload concluído. Estamos analisando a fatura."); router.push(`/importacoes/${id}/revisao`); router.refresh();
     } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível concluir o upload. Tente novamente."); }

@@ -1,8 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { requireSession } from "@/server/auth/session";
-import { createImportRecord } from "@/server/imports/service";
+import { createImportRecord, processInvoiceImport } from "@/server/imports/service";
 import { storageProvider } from "@/server/storage/provider";
-import { enqueueInvoiceImport } from "@/server/workflows/invoice-import";
 import { uploadPayloadSchema } from "@/features/imports/schemas";
 import { env } from "@/shared/lib/env";
 import { AppError, publicError, requestId } from "@/shared/lib/result";
@@ -49,11 +48,11 @@ export async function POST(request: Request) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") throw new AppError("INVALID_PDF", "O conteúdo enviado não é um PDF válido.");
       const storageKey = `imports/${crypto.randomUUID()}.pdf`;
-      await storageProvider().put(storageKey, bytes, "application/pdf");
+        await storageProvider().put(storageKey, bytes, "application/pdf");
       try {
         const imported = await createImportRecord({ userId: session.user.id }, { ...payload, storageKey, sizeBytes: file.size, mimeType: file.type });
-        const runId = await enqueueInvoiceImport(session.user.id, imported.id);
-        return Response.json({ id: imported.id, runId }, { status: 202 });
+        await processInvoiceImport(session.user.id, imported.id);
+        return Response.json({ id: imported.id }, { status: 202 });
       } catch (error) {
         await storageProvider().delete(storageKey);
         throw error;
@@ -81,8 +80,7 @@ export async function POST(request: Request) {
         );
         if (existing) return;
         const metadata = await import("@vercel/blob").then(({ head }) => head(blob.pathname));
-        const imported = await createImportRecord({ userId: payload.userId }, { creditCardId: payload.creditCardId, displayName: payload.displayName, storageKey: blob.pathname, sizeBytes: metadata.size, mimeType: metadata.contentType });
-        await enqueueInvoiceImport(payload.userId, imported.id);
+        await createImportRecord({ userId: payload.userId }, { creditCardId: payload.creditCardId, displayName: payload.displayName, storageKey: blob.pathname, sizeBytes: metadata.size, mimeType: metadata.contentType });
       },
     });
     return Response.json(result);
