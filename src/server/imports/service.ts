@@ -71,7 +71,9 @@ export async function processInvoiceImport(userId: string, importId: string) {
     if (bytes.byteLength > MAX_SIZE || new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") {
       throw new AppError("INVALID_PDF", "Este arquivo não possui uma estrutura PDF válida.");
     }
+    stage = "hash_file";
     const fileHash = createHash("sha256").update(bytes).digest("hex");
+    stage = "detect_duplicate";
     const duplicate = await withTenant(context, (tx) => tx.importedFile.findFirst({ where: { userId, fileHash, id: { not: importId } }, select: { id: true } }));
     if (duplicate) {
       await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { fileHash, status: "DUPLICATE_FILE", errorCode: "DUPLICATE_FILE", errorMessage: "Este PDF já foi importado." } }));
@@ -79,6 +81,7 @@ export async function processInvoiceImport(userId: string, importId: string) {
       await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { storageDeletedAt: new Date() } }));
       return;
     }
+    stage = "save_file_hash";
     await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { fileHash } }));
     stage = "extract_document";
     const document = await extractDocument(bytes);
@@ -141,7 +144,8 @@ export async function processInvoiceImport(userId: string, importId: string) {
   } catch (error) {
     logger.error({ err: error, importId, userId, stage }, "Falha no processamento da fatura");
     const appError = error instanceof AppError ? error : new AppError("IMPORT_FAILED", "Não foi possível interpretar esta fatura.");
-    const errorCode = appError.code === "IMPORT_FAILED" ? `IMPORT_FAILED_${stage}` : appError.code;
+    const errorKind = error instanceof Error ? error.name.replace(/[^A-Za-z0-9_]/g, "").slice(0, 40) : "Unknown";
+    const errorCode = appError.code === "IMPORT_FAILED" ? `IMPORT_FAILED_${stage}_${errorKind}` : appError.code;
     await withTenant(context, (tx) => tx.importedFile.updateMany({ where: { id: importId, userId }, data: { status: "FAILED", errorCode, errorMessage: appError.message } })).catch(() => undefined);
   }
 }
