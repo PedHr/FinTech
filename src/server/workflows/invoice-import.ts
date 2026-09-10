@@ -1,17 +1,17 @@
-import { start } from "workflow/api";
+import { after } from "next/server";
 import { processInvoiceImport } from "@/server/imports/service";
 
-export async function invoiceImportWorkflow(userId: string, importId: string) {
-  "use workflow";
-  return processInvoiceImportStep(userId, importId);
-}
-
-async function processInvoiceImportStep(userId: string, importId: string) {
-  "use step";
-  await processInvoiceImport(userId, importId);
-}
-
-export async function enqueueInvoiceImport(userId: string, importId: string) {
-  const run = await start(invoiceImportWorkflow, [userId, importId]);
-  return run.runId;
+/**
+ * Schedule a bounded import after the upload response has been sent.
+ *
+ * This stays inside Vercel's standard Node.js function runtime, which supports
+ * Prisma, pdfjs and the optional native OCR dependencies. Durable Workflow
+ * functions deliberately do not support those Node.js modules.
+ */
+export function enqueueInvoiceImport(userId: string, importId: string) {
+  const runId = crypto.randomUUID();
+  after(async () => {
+    await processInvoiceImport(userId, importId);
+  });
+  return runId;
 }
