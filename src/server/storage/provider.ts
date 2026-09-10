@@ -40,9 +40,16 @@ const blobStorage: StorageProvider = {
     return { key: blob.pathname, size: data.byteLength };
   },
   async get(key) {
-    const result = await get(key, { access: "private" });
+    // An import starts immediately after a direct browser upload. Bypassing the
+    // cache here avoids parsing a stale or partial representation of a newly
+    // completed private Blob.
+    const result = await get(key, { access: "private", useCache: false });
     if (!result || result.statusCode !== 200) throw new Error("Arquivo não encontrado.");
-    return new Uint8Array(await new Response(result.stream).arrayBuffer());
+    const bytes = new Uint8Array(await new Response(result.stream).arrayBuffer());
+    if (bytes.byteLength !== result.blob.size) {
+      throw new Error("A leitura do arquivo foi incompleta.");
+    }
+    return bytes;
   },
   async delete(key) { await del(key); },
 };

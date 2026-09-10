@@ -9,19 +9,26 @@ const MAX_RENDER_PIXELS = 20_000_000;
 const OCR_TIMEOUT_MS = 45_000;
 
 function pageText(items: ReadonlyArray<unknown>) {
-  const parts: string[] = [];
-  let lastY: number | undefined;
+  const rows = new Map<number, Array<{ x: number; text: string }>>();
   for (const value of items) {
     if (!value || typeof value !== "object" || !("str" in value)) continue;
     const item = value as { str: unknown; transform?: number[] };
     if (typeof item.str !== "string" || !item.str.trim()) continue;
-    const y = item.transform?.[5];
-    if (lastY !== undefined && y !== undefined && Math.abs(y - lastY) > 2) parts.push("\n");
-    else if (parts.length && parts.at(-1) !== "\n") parts.push(" ");
-    parts.push(item.str.trim());
-    lastY = y;
+    // PDF text operators are not required to be emitted in visual reading
+    // order. Grouping by baseline and then sorting horizontally keeps table
+    // rows intact (notably the current Nubank invoice layout).
+    const y = Math.round((item.transform?.[5] ?? 0) * 2) / 2;
+    const row = rows.get(y) ?? [];
+    row.push({ x: item.transform?.[4] ?? 0, text: item.str.trim() });
+    rows.set(y, row);
   }
-  return parts.join("").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+  return [...rows.entries()]
+    .sort(([left], [right]) => right - left)
+    .map(([, row]) => row.sort((left, right) => left.x - right.x).map((item) => item.text).join(" "))
+    .join("\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .trim();
 }
 
 async function withTimeout<T>(promise: Promise<T>, milliseconds: number) {
@@ -43,13 +50,23 @@ async function withTimeout<T>(promise: Promise<T>, milliseconds: number) {
 
 export async function extractDocument(data: Uint8Array): Promise<ExtractedDocument> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loadingTask = pdfjs.getDocument({ data, useWorkerFetch: false });
+  // pdfjs can transfer the supplied ArrayBuffer to its worker. Give it an
+  // owned copy so a platform-specific stream implementation cannot detach the
+  // bytes that were just read from private storage.
+  const loadingTask = pdfjs.getDocument({
+    data: data.slice(),
+    useWorkerFetch: false,
+    disableAutoFetch: true,
+    disableRange: true,
+    disableStream: true,
+  });
   let pdf: Awaited<typeof loadingTask.promise>;
   try {
     pdf = await loadingTask.promise;
   } catch (error) {
     if (error instanceof Error && error.name === "PasswordException") throw new AppError("UNSUPPORTED_PDF", "PDFs protegidos por senha ainda não são suportados.");
-    throw new AppError("INVALID_PDF", "Não foi possível abrir este PDF.");
+    if (error instanceof Error && error.name === "InvalidPDFException") throw new AppError("INVALID_PDF", "Não foi possível abrir este PDF.");
+    throw new AppError("IMPORT_FAILED", "Não foi possível iniciar a leitura deste PDF. Tente reprocessar a importação.", 500);
   }
   if (pdf.numPages > 100) throw new AppError("INVALID_PDF", "O PDF excede o limite de 100 páginas.");
 
