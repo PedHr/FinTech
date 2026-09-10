@@ -52,18 +52,22 @@ export async function createImportRecord(
 export async function processInvoiceImport(userId: string, importId: string) {
   const context = { userId };
   const storage = storageProvider();
+  let stage = "claim";
   try {
     const claim = await withTenant(context, (tx) => tx.importedFile.updateMany({
       where: { id: importId, userId, status: { in: ["QUEUED", "FAILED"] } },
       data: { status: "EXTRACTING", errorCode: null, errorMessage: null },
     }));
     if (claim.count === 0) return;
+    stage = "load_file";
     const file = await withTenant(context, (tx) => tx.importedFile.findFirst({
       where: { id: importId, userId, status: "EXTRACTING" },
       include: { creditCard: { include: { account: { include: { institution: true } } } } },
     }));
     if (!file) return;
+    stage = "read_storage";
     const bytes = await storage.get(file.storageKey);
+    stage = "validate_pdf";
     if (bytes.byteLength > MAX_SIZE || new TextDecoder("ascii").decode(bytes.slice(0, 5)) !== "%PDF-") {
       throw new AppError("INVALID_PDF", "Este arquivo não possui uma estrutura PDF válida.");
     }
@@ -76,12 +80,15 @@ export async function processInvoiceImport(userId: string, importId: string) {
       return;
     }
     await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { fileHash } }));
+    stage = "extract_document";
     const document = await extractDocument(bytes);
     if (document.usedOcr) await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { status: "OCR" } }));
     await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { status: "PARSING" } }));
+    stage = "parse_document";
     assertInstitutionCompatibility(document.text, file.creditCard.account.institution?.name);
     const parsed = await parseDocument(document, file.creditCard.account.institution?.name);
 
+    stage = "persist_drafts";
     await withTenant(context, async (tx) => {
       const rules = await tx.categorizationRule.findMany({ where: { userId, isActive: true }, orderBy: { priority: "asc" } });
       for (const item of parsed.result.transactions) {
@@ -132,9 +139,10 @@ export async function processInvoiceImport(userId: string, importId: string) {
       });
     }, "Serializable");
   } catch (error) {
-    logger.error({ err: error, importId, userId }, "Falha no processamento da fatura");
+    logger.error({ err: error, importId, userId, stage }, "Falha no processamento da fatura");
     const appError = error instanceof AppError ? error : new AppError("IMPORT_FAILED", "Não foi possível interpretar esta fatura.");
-    await withTenant(context, (tx) => tx.importedFile.updateMany({ where: { id: importId, userId }, data: { status: "FAILED", errorCode: appError.code, errorMessage: appError.message } })).catch(() => undefined);
+    const errorCode = appError.code === "IMPORT_FAILED" ? `IMPORT_FAILED_${stage}` : appError.code;
+    await withTenant(context, (tx) => tx.importedFile.updateMany({ where: { id: importId, userId }, data: { status: "FAILED", errorCode, errorMessage: appError.message } })).catch(() => undefined);
   }
 }
 
