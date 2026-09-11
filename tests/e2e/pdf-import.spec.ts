@@ -142,10 +142,12 @@ FATURA 2026
   await page.locator('input[type="file"]').setInputFiles(protectedPdfPath);
   await page.getByRole("button", { name: "Analisar fatura" }).click();
   await page.waitForURL(/\/importacoes\/[0-9a-f-]+\/revisao$/, { timeout: 60_000 });
-  await expect(page.getByText("Este PDF exige senha para ser aberto.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("Este PDF exige senha para ser aberto.")).toBeVisible();
   await page.getByLabel("Senha do PDF").fill("senha-incorreta");
   await page.getByRole("button", { name: "Reprocessar fatura" }).click();
-  await expect(page.getByText("A senha informada para o PDF está incorreta.")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: /Notifications/i }).getByText("A senha informada para o PDF está incorreta."),
+  ).toBeVisible();
   await page.getByLabel("Senha do PDF").fill("fixture-password-2026");
   await page.getByRole("button", { name: "Reprocessar fatura" }).click();
   await expect(page.getByRole("heading", { name: "Revise os lançamentos" })).toBeVisible();
