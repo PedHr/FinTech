@@ -28,15 +28,23 @@ function normalizePageText(value: string) {
   return value.replace(/[ \t]+/g, " ").replace(/ *\r?\n */g, "\n").trim();
 }
 
-export async function extractDocument(data: Uint8Array): Promise<ExtractedDocument> {
+export async function extractDocument(data: Uint8Array, options: { password?: string } = {}): Promise<ExtractedDocument> {
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>>;
   try {
     // unpdf includes a PDF.js build compiled for serverless runtimes. This
     // avoids the worker and DOM assumptions of the full PDF.js legacy build.
-    pdf = await getDocumentProxy(data.slice());
+    pdf = await getDocumentProxy(data.slice(), options.password === undefined ? {} : { password: options.password });
   } catch (error) {
     const signature = error instanceof Error ? `${error.name} ${error.message}` : "";
-    if (/password/i.test(signature)) throw new AppError("UNSUPPORTED_PDF", "PDFs protegidos por senha ainda não são suportados.");
+    const passwordCode = typeof error === "object" && error !== null && "code" in error
+      ? Number((error as { code?: unknown }).code)
+      : undefined;
+    if (passwordCode === 1 || (/password/i.test(signature) && options.password === undefined)) {
+      throw new AppError("PDF_PASSWORD_REQUIRED", "Este PDF exige senha para ser aberto.", 422);
+    }
+    if (passwordCode === 2 || /incorrect password/i.test(signature)) {
+      throw new AppError("PDF_PASSWORD_INVALID", "A senha informada para o PDF está incorreta.", 422);
+    }
     if (/invalid.*pdf|format/i.test(signature)) throw new AppError("INVALID_PDF", "Não foi possível abrir este PDF.");
     throw new AppError("IMPORT_FAILED", "Não foi possível iniciar a leitura deste PDF. Tente reprocessar a importação.", 500);
   }

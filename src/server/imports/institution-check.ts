@@ -3,9 +3,12 @@ import { AppError } from "@/shared/lib/result";
 
 const banks = [
   { key: "NUBANK", aliases: ["NUBANK", "NU PAGAMENTOS"] },
+  { key: "BANCO_DO_BRASIL", aliases: ["BANCO DO BRASIL", "OUROCARD", "BB ADMINISTRADORA DE CARTOES"] },
   { key: "ITAU", aliases: ["ITAU", "ITAU UNIBANCO"] },
-  { key: "INTER", aliases: ["BANCO INTER"] },
+  { key: "INTER", aliases: ["BANCO INTER", "INTER PAGAMENTOS"] },
   { key: "SANTANDER", aliases: ["SANTANDER"] },
+  { key: "BRADESCO", aliases: ["BRADESCO"] },
+  { key: "CAIXA", aliases: ["CAIXA ECONOMICA", "CARTOES CAIXA"] },
 ] as const;
 
 function hasPhrase(text: string, phrase: string) {

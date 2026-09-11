@@ -49,7 +49,7 @@ export async function createImportRecord(
   });
 }
 
-export async function processInvoiceImport(userId: string, importId: string) {
+export async function processInvoiceImport(userId: string, importId: string, options: { password?: string } = {}) {
   const context = { userId };
   const storage = storageProvider();
   let stage = "claim";
@@ -114,7 +114,7 @@ export async function processInvoiceImport(userId: string, importId: string) {
       return;
     }
     stage = "extract_document";
-    const document = await extractDocument(bytes);
+    const document = await extractDocument(bytes, { password: options.password });
     if (document.usedOcr) await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { status: "OCR" } }));
     await withTenant(context, (tx) => tx.importedFile.update({ where: { id: importId }, data: { status: "PARSING" } }));
     stage = "parse_document";
@@ -123,7 +123,21 @@ export async function processInvoiceImport(userId: string, importId: string) {
     const validTransactions = parsed.result.transactions.filter((item) => {
       try {
         const amount = new Decimal(item.amount);
-        return amount.isFinite() && amount.isPositive();
+        const date = new Date(`${item.date}T00:00:00.000Z`);
+        const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(item.date)
+          && !Number.isNaN(date.valueOf())
+          && date.toISOString().slice(0, 10) === item.date;
+        const installmentValid = item.installment === null || (
+          Number.isInteger(item.installment.current)
+          && Number.isInteger(item.installment.total)
+          && item.installment.current > 0
+          && item.installment.total >= item.installment.current
+        );
+        const description = item.description.trim();
+        const valid = amount.isFinite() && amount.isPositive() && dateValid
+          && description.length >= 2 && description.length <= 160
+          && installmentValid && item.confidence >= 0 && item.confidence <= 1;
+        return valid;
       } catch {
         return false;
       }

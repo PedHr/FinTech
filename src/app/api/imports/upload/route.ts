@@ -2,7 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { requireSession } from "@/server/auth/session";
 import { createImportRecord, processInvoiceImport } from "@/server/imports/service";
 import { storageProvider } from "@/server/storage/provider";
-import { uploadPayloadSchema } from "@/features/imports/schemas";
+import { processImportSchema, uploadPayloadSchema } from "@/features/imports/schemas";
 import { env } from "@/shared/lib/env";
 import { AppError, publicError, requestId } from "@/shared/lib/result";
 import { rateLimit } from "@/server/security/rate-limit";
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       if (env().STORAGE_DRIVER !== "local") throw new AppError("INVALID_PDF", "Use o upload direto configurado para produção.");
       const form = await request.formData();
       const file = form.get("file");
+      const processPayload = processImportSchema.parse({ password: form.get("password") || undefined });
       const payload = uploadPayloadSchema.parse({ creditCardId: form.get("creditCardId"), displayName: file instanceof File ? file.name : "" });
       if (!(file instanceof File) || file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) throw new AppError("INVALID_PDF", "Envie um PDF de até 10 MB.");
       const bytes = new Uint8Array(await file.arrayBuffer());
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
         await storageProvider().put(storageKey, bytes, "application/pdf");
       try {
         const imported = await createImportRecord({ userId: session.user.id }, { ...payload, storageKey, sizeBytes: file.size, mimeType: file.type });
-        await processInvoiceImport(session.user.id, imported.id);
+        await processInvoiceImport(session.user.id, imported.id, processPayload);
         return Response.json({ id: imported.id }, { status: 202 });
       } catch (error) {
         await storageProvider().delete(storageKey);

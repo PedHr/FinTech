@@ -199,7 +199,7 @@ async function main() {
     }
 
     await tx.auditLog.create({ data: { userId: user.id, event: "DEVELOPMENT_SEED_CREATED", entityType: "User", entityId: user.id, requestId: "development-seed" } });
-  }, "Serializable");
+  }, "Serializable", { maxWait: 10_000, timeout: 60_000 });
 
   process.stdout.write(`Seed concluído para ${email}.\n`);
 }

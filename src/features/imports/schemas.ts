@@ -5,6 +5,11 @@ export const uploadPayloadSchema = z.object({
   displayName: z.string().trim().min(1).max(120).refine((name) => name.toLowerCase().endsWith(".pdf")),
 });
 
+export const processImportSchema = z.object({
+  // Deliberately do not trim: spaces can be part of a valid PDF password.
+  password: z.string().max(256).optional(),
+}).strict();
+
 export const reviewSchema = z.object({
   rows: z.array(z.object({
     id: z.string().uuid(), included: z.boolean(), forceDuplicate: z.boolean().optional(),

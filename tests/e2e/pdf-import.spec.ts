@@ -14,7 +14,7 @@ const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 test.beforeAll(async () => {
   const passwordHash = await hash(password, {
@@ -125,6 +125,33 @@ FATURA 2026
   );
   const card = cardResult.rows[0];
   expect(card).toBeTruthy();
+
+  const protectedPdfPath = path.resolve("tests/fixtures/ourocard-sanitized-encrypted.pdf");
+  await page.goto("/importacoes/nova");
+  await page.getByLabel("Cartão").selectOption({ label: "Cartão PDF E2E" });
+  await page.locator('input[type="file"]').setInputFiles(protectedPdfPath);
+  await page.getByRole("button", { name: "Analisar fatura" }).click();
+  await page.waitForURL(/\/importacoes\/[0-9a-f-]+\/revisao$/, { timeout: 60_000 });
+  await expect(page.getByText("Este PDF exige senha para ser aberto.")).toBeVisible();
+  await page.getByLabel("Senha do PDF").fill("senha-incorreta");
+  await page.getByRole("button", { name: "Reprocessar fatura" }).click();
+  await expect(page.getByText("A senha informada para o PDF está incorreta.")).toBeVisible();
+  await page.getByLabel("Senha do PDF").fill("fixture-password-2026");
+  await page.getByRole("button", { name: "Reprocessar fatura" }).click();
+  await expect(page.getByRole("heading", { name: "Revise os lançamentos" })).toBeVisible();
+  await expect(page.locator('input[value="MERCADO FIXTURE"]')).toBeVisible();
+  await expect(page.locator('input[value="COMPRA"]')).toBeVisible();
+  await page.getByRole("button", { name: "Importar 2 transações" }).click();
+  await page.waitForURL(/\/transacoes$/);
+  const protectedImport = await pool.query<{ errorCode: string | null; storageDeletedAt: Date | null }>(
+    `select "errorCode", "storageDeletedAt" from imported_files
+       where "userId" = $1 and "displayName" = 'ourocard-sanitized-encrypted.pdf' and status = 'COMPLETED'
+       order by "createdAt" desc limit 1`,
+    [userId],
+  );
+  expect(protectedImport.rows[0]?.errorCode).toBeNull();
+  expect(protectedImport.rows[0]?.storageDeletedAt).not.toBeNull();
+
   const pdfHash = createHash("sha256").update(await readFile(pdfPath)).digest("hex");
   const legacyFailureId = randomUUID();
   await pool.query(
@@ -169,7 +196,7 @@ FATURA 2026
     storageDeletedAt: Date | null;
   }>(
     `select "itemCount", "selectedCount", "fileHash", "storageDeletedAt"
-       from imported_files where "userId" = $1 and status = 'COMPLETED' limit 1`,
+       from imported_files where "userId" = $1 and status = 'COMPLETED' and "displayName" = 'fatura-e2e.pdf' limit 1`,
     [userId],
   );
   expect(completed.rows[0]).toMatchObject({ itemCount: 3, selectedCount: 2, fileHash: pdfHash });

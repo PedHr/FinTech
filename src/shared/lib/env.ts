@@ -25,7 +25,9 @@ export function env() {
 
   const isProductionBuild =
     process.env.FINCONTROL_BUILD === "1" || process.env.NEXT_PHASE === "phase-production-build";
-  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  const vercelHost = process.env.VERCEL_ENV === "preview"
+    ? process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL
+    : process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
   const inferredAppUrl = process.env.APP_URL || (vercelHost ? `https://${vercelHost}` : undefined);
   const result = schema.safeParse({
     ...process.env,

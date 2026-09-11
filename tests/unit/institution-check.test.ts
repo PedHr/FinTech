@@ -9,5 +9,6 @@ describe("compatibilidade da instituição", () => {
 
   it("recusa assinatura clara de outro banco", () => {
     expect(() => assertInstitutionCompatibility("BANCO INTER - fatura", "Nubank")).toThrowError(/banco selecionado/);
+    expect(() => assertInstitutionCompatibility("OUROCARD BANCO DO BRASIL", "Bradesco")).toThrowError(/banco selecionado/);
   });
 });
