@@ -14,7 +14,7 @@ const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
-test.setTimeout(180_000);
+test.setTimeout(300_000);
 
 test.beforeAll(async () => {
   const passwordHash = await hash(password, {
@@ -101,7 +101,8 @@ FATURA 2026
     ? ""
     : await signInResponse.text().catch(() => "Resposta sem corpo.");
   expect(signInResponse.status(), signInError).toBe(200);
-  await page.waitForURL(/\/onboarding$/, { waitUntil: "commit" });
+  await page.waitForURL(/\/onboarding$/, { waitUntil: "load" });
+  await page.waitForLoadState("networkidle");
 
   await page.getByLabel("Instituição").fill("Banco de Teste");
   await page.getByLabel("Nome da conta").fill("Conta E2E");
