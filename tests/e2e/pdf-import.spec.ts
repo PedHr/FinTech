@@ -67,6 +67,14 @@ test.afterAll(async () => {
 });
 
 test("importa um PDF real, confirma as transações e trata duplicidade", async ({ page }, testInfo) => {
+  await page.route(/\.blob\.vercel-storage\.com/i, async (route) => {
+    // The Vercel deployment-protection headers belong only to the Preview
+    // origin. Sending them to the direct Blob upload triggers a CORS preflight.
+    const headers = { ...route.request().headers() };
+    delete headers["x-vercel-protection-bypass"];
+    delete headers["x-vercel-set-bypass-cookie"];
+    await route.continue({ headers });
+  });
   const pdfPath = testInfo.outputPath("fatura-e2e.pdf");
   await page.setContent(`
     <!doctype html>
@@ -99,6 +107,7 @@ FATURA 2026
   await page.getByLabel("Nome da conta").fill("Conta E2E");
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Ir para o dashboard" }).click();
+  await page.waitForURL(/\/dashboard$/, { waitUntil: "commit" });
   await expect.poll(async () => {
     const result = await pool.query<{ completed: boolean }>(
       `select ("onboardingCompletedAt" is not null) as completed from users where id = $1`,
