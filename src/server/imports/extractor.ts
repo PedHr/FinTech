@@ -66,15 +66,41 @@ export async function extractDocument(data: Uint8Array, options: { password?: st
 
   let usedOcr = false;
   let worker: Awaited<ReturnType<(typeof import("tesseract.js"))["createWorker"]>> | undefined;
+  let renderPdf: typeof pdf | undefined;
   try {
     for (let number = 1; number <= pages.length; number += 1) {
       let text = pages[number - 1] ?? "";
       if (text.length >= MIN_TEXT_PER_PAGE) continue;
 
       usedOcr = true;
+      if (!renderPdf) {
+        const { createCanvas } = await import("@napi-rs/canvas");
+        class CanvasFactory {
+          create(width: number, height: number) {
+            const canvas = createCanvas(width, height);
+            return { canvas, context: canvas.getContext("2d") };
+          }
+          reset(target: { canvas: { width: number; height: number } }, width: number, height: number) {
+            target.canvas.width = width;
+            target.canvas.height = height;
+          }
+          destroy(target: { canvas?: { width: number; height: number }; context?: unknown }) {
+            if (target.canvas) {
+              target.canvas.width = 0;
+              target.canvas.height = 0;
+            }
+            target.canvas = undefined;
+            target.context = undefined;
+          }
+        }
+        renderPdf = await getDocumentProxy(data.slice(), {
+          ...(options.password === undefined ? {} : { password: options.password }),
+          CanvasFactory,
+        });
+      }
       const { createWorker } = await import("tesseract.js");
       worker ??= await createWorker(["por", "eng"], undefined, { cachePath: tmpdir() });
-      const image = await renderPageAsImage(pdf, number, {
+      const image = await renderPageAsImage(renderPdf, number, {
         scale: 2,
         canvasImport: () => import("@napi-rs/canvas"),
       });
@@ -87,6 +113,7 @@ export async function extractDocument(data: Uint8Array, options: { password?: st
     }
   } finally {
     await worker?.terminate();
+    await renderPdf?.destroy();
     await pdf.destroy();
   }
 

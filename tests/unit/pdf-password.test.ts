@@ -18,6 +18,19 @@ describe("PDF protegido por senha", () => {
     expect(document.text).toContain("MERCADO FIXTURE");
     expect(document.usedOcr).toBe(false);
   });
+
+  it.skipIf(!process.env.REAL_BB_PDF_PATH || !process.env.REAL_BB_PDF_PASSWORD)(
+    "extrai a amostra real via OCR sem persistir a senha",
+    async () => {
+      const bytes = new Uint8Array(await readFile(process.env.REAL_BB_PDF_PATH!));
+      const document = await extractDocument(bytes, { password: process.env.REAL_BB_PDF_PASSWORD! });
+      const parsed = await parseDocument(document, "Banco do Brasil");
+      expect(document.usedOcr).toBe(true);
+      expect(parsed.parser.key).toBe("banco-do-brasil-ourocard");
+      expect(parsed.result.transactions).toHaveLength(35);
+    },
+    120_000,
+  );
 });
 
 describe("fixtures PDF dos layouts bancários", () => {

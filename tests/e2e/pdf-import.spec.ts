@@ -249,8 +249,24 @@ test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit�
   await page.getByRole("button", { name: "Entrar" }).click();
   await page.waitForURL(/\/dashboard$/, { waitUntil: "load" });
 
+  await page.goto("/contas");
+  await page.getByPlaceholder("Ex.: Inter").fill("Banco do Brasil");
+  await page.getByRole("button", { name: "Adicionar banco" }).click();
+  await expect(page.getByText("Instituição adicionada.")).toBeVisible();
+
+  await page.goto("/cartoes");
+  await page.getByLabel("Nome", { exact: true }).fill("Cartão BB E2E");
+  await page.locator('select[name="institutionId"]').selectOption({ label: "Banco do Brasil" });
+  await page.getByLabel("Limite").fill("5000,00");
+  await page.getByLabel("Bandeira").fill("Visa");
+  await page.getByLabel("Fechamento").fill("20");
+  await page.getByLabel("Vencimento").fill("27");
+  await page.locator('select[name="paymentAccountId"]').selectOption({ label: "Conta E2E" });
+  await page.getByRole("button", { name: "Adicionar cartão" }).click();
+  await expect(page.getByText("Cartão adicionado.")).toBeVisible();
+
   await page.goto("/importacoes/nova");
-  await page.getByLabel("Cartão").selectOption({ label: "Cartão PDF E2E" });
+  await page.getByLabel("Cartão").selectOption({ label: "Cartão BB E2E" });
   await page.getByLabel("Senha do PDF").fill(realPdfPassword!);
   await page.locator('input[type="file"]').setInputFiles(realPdfPath!);
   await page.getByRole("button", { name: "Analisar fatura" }).click();
@@ -274,7 +290,7 @@ test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit�
     status: "REVIEW_READY",
     parserKey: "banco-do-brasil-ourocard",
     parserVersion: "1.1.0",
-    itemCount: 31,
+    itemCount: 35,
     errorCode: null,
   });
 });
