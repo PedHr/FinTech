@@ -15,6 +15,7 @@ const userId = randomUUID();
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 test.setTimeout(300_000);
+test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
   const passwordHash = await hash(password, {
@@ -66,7 +67,7 @@ test.afterAll(async () => {
   await pool.end();
 });
 
-test("importa um PDF real, confirma as transações e trata duplicidade", async ({ page }, testInfo) => {
+test("importa PDFs comum e protegido, confirma as transações e trata duplicidade", async ({ page }, testInfo) => {
   await page.route(/\.blob\.vercel-storage\.com/i, async (route) => {
     // The Vercel deployment-protection headers belong only to the Preview
     // origin. Sending them to the direct Blob upload triggers a CORS preflight.
@@ -228,4 +229,52 @@ FATURA 2026
   );
   expect(duplicate.rows[0]?.fileHash).toBeNull();
   expect(duplicate.rows[0]?.storageDeletedAt).not.toBeNull();
+});
+
+test("valida a amostra real do Banco do Brasil quando fornecida fora do repositório", async ({ page }) => {
+  const realPdfPath = process.env.REAL_BB_PDF_PATH;
+  const realPdfPassword = process.env.REAL_BB_PDF_PASSWORD;
+  test.skip(!realPdfPath || !realPdfPassword, "A amostra real e a senha são fornecidas apenas na execução manual.");
+
+  await page.route(/\.blob\.vercel-storage\.com/i, async (route) => {
+    const headers = { ...route.request().headers() };
+    delete headers["x-vercel-protection-bypass"];
+    delete headers["x-vercel-set-bypass-cookie"];
+    await route.continue({ headers });
+  });
+
+  await page.goto("/entrar");
+  await page.getByLabel(/e-mail/i).fill(email);
+  await page.getByLabel(/senha/i).fill(password);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.waitForURL(/\/dashboard$/, { waitUntil: "load" });
+
+  await page.goto("/importacoes/nova");
+  await page.getByLabel("Cartão").selectOption({ label: "Cartão PDF E2E" });
+  await page.getByLabel("Senha do PDF").fill(realPdfPassword!);
+  await page.locator('input[type="file"]').setInputFiles(realPdfPath!);
+  await page.getByRole("button", { name: "Analisar fatura" }).click();
+  await page.waitForURL(/\/importacoes\/[0-9a-f-]+\/revisao$/, { timeout: 60_000 });
+  await expect(page.getByRole("heading", { name: "Revise os lançamentos" })).toBeVisible();
+
+  const imported = await pool.query<{
+    status: string;
+    parserKey: string | null;
+    parserVersion: string | null;
+    itemCount: number;
+    errorCode: string | null;
+  }>(
+    `select status, "parserKey", "parserVersion", "itemCount", "errorCode"
+       from imported_files
+      where "userId" = $1 and "displayName" = $2
+      order by "createdAt" desc limit 1`,
+    [userId, path.basename(realPdfPath!)],
+  );
+  expect(imported.rows[0]).toMatchObject({
+    status: "REVIEW_READY",
+    parserKey: "banco-do-brasil-ourocard",
+    parserVersion: "1.1.0",
+    itemCount: 31,
+    errorCode: null,
+  });
 });

@@ -1,4 +1,5 @@
 import "server-only";
+import { tmpdir } from "node:os";
 import { extractText, getDocumentProxy, renderPageAsImage } from "unpdf";
 import type { ExtractedDocument } from "./contracts";
 import { AppError } from "@/shared/lib/result";
@@ -72,7 +73,7 @@ export async function extractDocument(data: Uint8Array, options: { password?: st
 
       usedOcr = true;
       const { createWorker } = await import("tesseract.js");
-      worker ??= await createWorker(["por", "eng"]);
+      worker ??= await createWorker(["por", "eng"], undefined, { cachePath: tmpdir() });
       const image = await renderPageAsImage(pdf, number, {
         scale: 2,
         canvasImport: () => import("@napi-rs/canvas"),

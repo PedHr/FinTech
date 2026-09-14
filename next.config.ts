@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   output: process.env.VERCEL === "1" ? undefined : "standalone",
   serverExternalPackages: ["@napi-rs/canvas", "tesseract.js"],
+  outputFileTracingIncludes: {
+    "/api/imports/*/process": ["./node_modules/tesseract.js-core/**/*"],
+    "/api/imports/*/retry": ["./node_modules/tesseract.js-core/**/*"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
