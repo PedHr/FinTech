@@ -4,7 +4,7 @@ import path from "node:path";
 import { hash } from "@node-rs/argon2";
 import dotenv from "dotenv";
 import pg from "pg";
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext } from "@playwright/test";
 
 dotenv.config({ path: ".env.local", quiet: true });
 process.env.BETTER_AUTH_SECRET ??= "playwright-only-secret-with-at-least-32-characters";
@@ -13,6 +13,7 @@ const password = "Pdf-e2e-password-2026";
 const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+let authCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
 
 test.setTimeout(300_000);
 test.describe.configure({ mode: "serial" });
@@ -229,6 +230,7 @@ FATURA 2026
   );
   expect(duplicate.rows[0]?.fileHash).toBeNull();
   expect(duplicate.rows[0]?.storageDeletedAt).not.toBeNull();
+  authCookies = await page.context().cookies();
 });
 
 test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit√≥rio", async ({ page }) => {
@@ -243,16 +245,19 @@ test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit√
     await route.continue({ headers });
   });
 
-  await page.goto("/entrar");
-  await page.getByLabel(/e-mail/i).fill(email);
-  await page.getByLabel(/senha/i).fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL(/\/dashboard$/, { waitUntil: "load" });
+  await page.context().addCookies(authCookies);
+  await page.goto("/dashboard");
 
   await page.goto("/contas");
   await page.getByPlaceholder("Ex.: Inter").fill("Banco do Brasil");
   await page.getByRole("button", { name: "Adicionar banco" }).click();
-  await expect(page.getByText("Institui√ß√£o adicionada.")).toBeVisible();
+  await expect.poll(async () => {
+    const result = await pool.query<{ count: number }>(
+      `select count(*)::int as count from institutions where "userId" = $1 and "normalizedName" = 'BANCO DO BRASIL'`,
+      [userId],
+    );
+    return result.rows[0]?.count;
+  }).toBe(1);
 
   await page.goto("/cartoes");
   await page.getByLabel("Nome", { exact: true }).fill("Cart√£o BB E2E");
@@ -272,6 +277,8 @@ test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit√
   await page.getByRole("button", { name: "Analisar fatura" }).click();
   await page.waitForURL(/\/importacoes\/[0-9a-f-]+\/revisao$/, { timeout: 60_000 });
   await expect(page.getByRole("heading", { name: "Revise os lan√ßamentos" })).toBeVisible();
+  const importId = page.url().match(/\/importacoes\/([0-9a-f-]+)\/revisao$/)?.[1];
+  expect(importId).toBeTruthy();
 
   const imported = await pool.query<{
     status: string;
@@ -282,9 +289,8 @@ test("valida a amostra real do Banco do Brasil quando fornecida fora do reposit√
   }>(
     `select status, "parserKey", "parserVersion", "itemCount", "errorCode"
        from imported_files
-      where "userId" = $1 and "displayName" = $2
-      order by "createdAt" desc limit 1`,
-    [userId, path.basename(realPdfPath!)],
+      where "userId" = $1 and id = $2`,
+    [userId, importId],
   );
   expect(imported.rows[0]).toMatchObject({
     status: "REVIEW_READY",
