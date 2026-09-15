@@ -5,6 +5,7 @@ import { hash } from "@node-rs/argon2";
 import dotenv from "dotenv";
 import pg from "pg";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { sanitizeFilename } from "../../src/shared/lib/text";
 
 dotenv.config({ path: ".env.local", quiet: true });
 process.env.BETTER_AUTH_SECRET ??= "playwright-only-secret-with-at-least-32-characters";
@@ -13,7 +14,7 @@ const password = "Pdf-e2e-password-2026";
 const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
 const longPdfName = `${"generated-invoice-".repeat(12)}.pdf`;
-const normalizedPdfName = `${longPdfName.slice(0, 116)}.pdf`;
+const normalizedPdfName = sanitizeFilename(`${longPdfName.slice(0, 116)}.pdf`);
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 let authCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
 
