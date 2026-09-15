@@ -267,8 +267,8 @@ test("exibe todas as categorias, valores e percentuais no dashboard e por perío
     const id = randomUUID();
     await pool.query(
       `insert into transactions (id, "userId", "accountId", "categoryId", description, "normalizedDescription", amount, direction, kind, "transactionDate", fingerprint, "updatedAt")
-       values ($1, $2, $3, $4, 'Despesa visual sintética', 'DESPESA VISUAL SINTETICA', $5, 'DEBIT', 'EXPENSE', current_date, $1::text, now())`,
-      [id, userId, account.rows[0]!.id, categoryId, index < 8 ? (index + 1) * 100 : 400],
+       values ($1, $2, $3, $4, 'Despesa visual sintética', 'DESPESA VISUAL SINTETICA', $5, 'DEBIT', 'EXPENSE', current_date, $6, now())`,
+      [id, userId, account.rows[0]!.id, categoryId, index < 8 ? (index + 1) * 100 : 400, id],
     );
   }
   await page.context().addCookies(authCookies);
