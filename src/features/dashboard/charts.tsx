@@ -21,7 +21,7 @@ export function CategoryChart({ data }: { data: { name: string; value: number }[
       <div><p className="muted text-xs">Total distribuído</p><p className="tabular mt-1 text-2xl font-bold">{formatBRL(breakdown.total)}</p></div>
       <span className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs">{breakdown.rows.length} {breakdown.rows.length === 1 ? "categoria" : "categorias"}</span>
     </div>
-    <div className="h-48" aria-hidden="true"><ResponsiveContainer><PieChart><Pie data={breakdown.rows} dataKey="value" nameKey="name" innerRadius={52} outerRadius={80} paddingAngle={2}>{breakdown.rows.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatBRL(Number(value))} /></PieChart></ResponsiveContainer></div>
+    <div className="h-48" aria-hidden="true"><ResponsiveContainer><PieChart><Pie data={breakdown.rows} dataKey="value" nameKey="name" innerRadius={52} outerRadius={80} paddingAngle={2} isAnimationActive={false}>{breakdown.rows.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatBRL(Number(value))} /></PieChart></ResponsiveContainer></div>
     <div className="rounded-xl bg-[var(--accent)] p-3 text-sm">
       <p><span className="font-semibold">{largest.name}</span> concentra {percentage(largest.percentage)} dos gastos distribuídos.</p>
       {breakdown.rows.length > 3 && <p className="muted mt-1 text-xs">As três maiores categorias representam {percentage(breakdown.topThreePercentage)} do total.</p>}

@@ -280,6 +280,7 @@ test("exibe todas as categorias, valores e percentuais no dashboard e por perío
   await expect(ranking.getByRole("listitem").first()).toContainText("20%");
   await expect(ranking.getByText("Sem categoria", { exact: false })).toBeVisible();
   await expect(page.getByText("As três maiores categorias representam 52,5% do total.")).toBeVisible();
+  await expect(page.locator(".recharts-pie-sector")).toHaveCount(9);
   await page.screenshot({ path: testInfo.outputPath("category-dashboard.png"), fullPage: true });
   await page.getByRole("link", { name: "Ver por período" }).click();
   await expect(page.getByRole("heading", { name: "Relatórios", exact: true })).toBeVisible();
@@ -290,6 +291,7 @@ test("exibe todas as categorias, valores e percentuais no dashboard e por perío
   await page.getByRole("button", { name: "Aplicar período" }).click();
   await expect(ranking.getByRole("listitem")).toHaveCount(9);
   await expect(ranking.getByRole("listitem").first()).toContainText("800,00");
+  await expect(page.locator(".recharts-pie-sector")).toHaveCount(9);
   await page.screenshot({ path: testInfo.outputPath("category-report.png"), fullPage: true });
   // Check the ranked list, not an inaccessible tooltip, and mobile overflow.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
