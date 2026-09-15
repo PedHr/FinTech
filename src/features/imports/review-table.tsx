@@ -49,7 +49,6 @@ export function ReviewTable({ importId, drafts, categories }: { importId: string
       if (!response.ok) throw new Error(body.error?.message ?? "Falha ao importar.");
       toast.success(`${body.count} transações importadas.`);
       router.push("/transacoes");
-      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível confirmar a importação.");
     } finally {

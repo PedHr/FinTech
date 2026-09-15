@@ -4,7 +4,7 @@ import path from "node:path";
 import { hash } from "@node-rs/argon2";
 import dotenv from "dotenv";
 import pg from "pg";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 dotenv.config({ path: ".env.local", quiet: true });
 process.env.BETTER_AUTH_SECRET ??= "playwright-only-secret-with-at-least-32-characters";
@@ -14,6 +14,20 @@ const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 let authCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
+
+async function confirmTwoTransactions(page: Page) {
+  const responsePromise = page.waitForResponse(
+    (response) => /\/api\/imports\/[^/]+\/confirm$/.test(response.url())
+      && response.request().method() === "POST",
+    { timeout: 60_000 },
+  );
+  await page.getByRole("button", { name: "Importar 2 transações" }).click();
+  const response = await responsePromise;
+  const body = await response.json();
+  expect(response.status(), JSON.stringify(body)).toBe(200);
+  expect(body.count).toBe(2);
+  await page.waitForURL(/\/transacoes$/, { timeout: 60_000, waitUntil: "commit" });
+}
 
 test.setTimeout(300_000);
 test.describe.configure({ mode: "serial" });
@@ -155,8 +169,7 @@ FATURA 2026
   await expect(page.getByRole("heading", { name: "Revise os lançamentos" })).toBeVisible();
   await expect(page.locator('input[value="MERCADO FIXTURE"]')).toBeVisible();
   await expect(page.locator('input[value="COMPRA"]')).toBeVisible();
-  await page.getByRole("button", { name: "Importar 2 transações" }).click();
-  await page.waitForURL(/\/transacoes$/);
+  await confirmTwoTransactions(page);
   const protectedImport = await pool.query<{ errorCode: string | null; storageDeletedAt: Date | null }>(
     `select "errorCode", "storageDeletedAt" from imported_files
        where "userId" = $1 and "displayName" = 'ourocard-sanitized-encrypted.pdf' and status = 'COMPLETED'
@@ -193,8 +206,7 @@ FATURA 2026
   await expect(page.locator('input[value="LOJA TESTE PDF"]')).toBeVisible();
   await expect(page.locator('input[value="MERCADO E2E"]')).toBeVisible();
   await expect(page.getByText("Pagamento ignorado")).toBeVisible();
-  await page.getByRole("button", { name: "Importar 2 transações" }).click();
-  await page.waitForURL(/\/transacoes$/);
+  await confirmTwoTransactions(page);
   await expect(page.getByText("LOJA TESTE PDF", { exact: true })).toBeVisible();
   await expect(page.getByText("MERCADO E2E", { exact: true })).toBeVisible();
 
