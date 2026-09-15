@@ -46,7 +46,7 @@ export async function reportData(context: TenantContext, from: string, to: strin
     return {
       summary: { income: moneyJSON(income), expenses: moneyJSON(expenses), cashFlow: moneyJSON(income.minus(expenses)) },
       monthly: [...months].map(([month, value]) => ({ month, income: value.income.toNumber(), expenses: value.expenses.toNumber() })),
-      categories: [...categories].filter(([, value]) => value.greaterThan(0)).map(([name, value]) => ({ name, value: value.toNumber() })).sort((a, b) => b.value - a.value).slice(0, 10),
+      categories: [...categories].filter(([, value]) => value.greaterThan(0)).map(([name, value]) => ({ name, value: value.toNumber() })).sort((a, b) => b.value - a.value),
       institutions: [...institutions].filter(([, value]) => value.greaterThan(0)).map(([name, value]) => ({ name, value: value.toNumber() })).sort((a, b) => b.value - a.value).slice(0, 10),
       count: transactions.length,
     };

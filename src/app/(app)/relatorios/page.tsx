@@ -34,7 +34,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <PageHeader title="Relatórios" description="Análises construídas exclusivamente a partir dos seus lançamentos." action={<a className="inline-flex h-10 items-center rounded-xl border bg-[var(--card)] px-4 text-sm font-semibold" href={`/api/exports/transactions.csv?${exportQuery}`}>Exportar CSV</a>} />
     <Card>
       <form className="grid gap-3 sm:grid-cols-4">
-        <Select name="period" defaultValue={selected}><option value="30d">Últimos 30 dias</option><option value="3m">3 meses</option><option value="6m">6 meses</option><option value="12m">12 meses</option><option value="year">Ano atual</option><option value="custom">Personalizado</option></Select>
+        <Select aria-label="Período do relatório" name="period" defaultValue={selected}><option value="30d">Últimos 30 dias</option><option value="3m">3 meses</option><option value="6m">6 meses</option><option value="12m">12 meses</option><option value="year">Ano atual</option><option value="custom">Personalizado</option></Select>
         <Input aria-label="Data inicial" name="dateFrom" type="date" defaultValue={params.dateFrom ?? dates.from} />
         <Input aria-label="Data final" name="dateTo" type="date" defaultValue={params.dateTo ?? dates.to} />
         <button className="rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white">Aplicar período</button>
@@ -47,7 +47,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     </div>
     <Card><h2 className="font-semibold">Receitas x despesas</h2><CashFlowChart data={data.monthly} /></Card>
     <div className="grid gap-6 xl:grid-cols-2">
-      <Card><h2 className="font-semibold">Gastos por categoria</h2><CategoryChart data={data.categories} /></Card>
+      <Card><h2 className="font-semibold">Gastos por categoria</h2><p className="muted mt-1 text-xs">Despesas menos estornos no período. Categorias com saldo zero ou negativo não entram na distribuição.</p><CategoryChart data={data.categories} /></Card>
       <Card><h2 className="font-semibold">Gastos por instituição</h2><InstitutionChart data={data.institutions} /></Card>
     </div>
   </div>;

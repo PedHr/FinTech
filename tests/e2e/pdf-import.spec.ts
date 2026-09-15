@@ -254,6 +254,47 @@ FATURA 2026
   authCookies = await page.context().cookies();
 });
 
+test("exibe todas as categorias, valores e percentuais no dashboard e por período", async ({ page }, testInfo) => {
+  // Only the disposable E2E user's synthetic data in the isolated dev database.
+  const account = await pool.query<{ id: string }>(`select id from financial_accounts where "userId" = $1 limit 1`, [userId]);
+  expect(account.rows[0]).toBeTruthy();
+  for (let index = 0; index < 9; index += 1) {
+    const categoryId = index < 8 ? randomUUID() : null;
+    if (categoryId) await pool.query(
+      `insert into categories (id, "userId", name, "normalizedName", kind, "updatedAt") values ($1, $2, $3, $3, 'EXPENSE', now())`,
+      [categoryId, userId, `Categoria visual ${index + 1}`],
+    );
+    const id = randomUUID();
+    await pool.query(
+      `insert into transactions (id, "userId", "accountId", "categoryId", description, "normalizedDescription", amount, direction, kind, "transactionDate", fingerprint, "updatedAt")
+       values ($1, $2, $3, $4, 'Despesa visual sintética', 'DESPESA VISUAL SINTETICA', $5, 'DEBIT', 'EXPENSE', current_date, $1::text, now())`,
+      [id, userId, account.rows[0]!.id, categoryId, index < 8 ? (index + 1) * 100 : 400],
+    );
+  }
+  await page.context().addCookies(authCookies);
+  await page.goto("/dashboard");
+  const ranking = page.getByRole("list", { name: "Ranking de gastos por categoria" });
+  await expect(ranking.getByRole("listitem")).toHaveCount(9);
+  await expect(ranking.getByRole("listitem").first()).toContainText("Categoria visual 8");
+  await expect(ranking.getByRole("listitem").first()).toContainText("800,00");
+  await expect(ranking.getByRole("listitem").first()).toContainText("20%");
+  await expect(ranking.getByText("Sem categoria", { exact: false })).toBeVisible();
+  await expect(page.getByText("As três maiores categorias representam 52,5% do total.")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("category-dashboard.png"), fullPage: true });
+  await page.getByRole("link", { name: "Ver por período" }).click();
+  await expect(page.getByRole("heading", { name: "Relatórios", exact: true })).toBeVisible();
+  await page.getByLabel("Período do relatório").selectOption("custom");
+  const today = new Date().toISOString().slice(0, 10);
+  await page.getByLabel("Data inicial").fill(`${today.slice(0, 7)}-01`);
+  await page.getByLabel("Data final").fill(today);
+  await page.getByRole("button", { name: "Aplicar período" }).click();
+  await expect(ranking.getByRole("listitem")).toHaveCount(9);
+  await expect(ranking.getByRole("listitem").first()).toContainText("800,00");
+  await page.screenshot({ path: testInfo.outputPath("category-report.png"), fullPage: true });
+  // Check the ranked list, not an inaccessible tooltip, and mobile overflow.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("valida a amostra real do Banco do Brasil quando fornecida fora do repositório", async ({ page }) => {
   const realPdfPath = process.env.REAL_BB_PDF_PATH;
   const realPdfPassword = process.env.REAL_BB_PDF_PASSWORD;

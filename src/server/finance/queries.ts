@@ -91,13 +91,12 @@ export async function dashboardData(context: TenantContext) {
     const categoryIds = categories.map((item) => item.categoryId).filter((id): id is string => Boolean(id));
     const categoryRows = await tx.category.findMany({ where: { userId: context.userId, id: { in: categoryIds } } });
     const categoryData = categories
-      .filter((item) => item.categoryId && item.kind === "EXPENSE")
+      .filter((item) => item.kind === "EXPENSE")
       .map((item) => ({
-        name: categoryRows.find((category) => category.id === item.categoryId)?.name ?? "Outros",
+        name: categoryRows.find((category) => category.id === item.categoryId)?.name ?? "Sem categoria",
         value: new Decimal(item._sum.amount?.toString() ?? 0).toNumber(),
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+      .sort((a, b) => b.value - a.value);
 
     const institutionMap = new Map<string, Decimal>();
     for (const item of balances) {
