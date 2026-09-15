@@ -15,6 +15,9 @@ export const maxDuration = 300;
 
 function responseError(error: unknown) {
   const id = requestId();
+  if (error instanceof z.ZodError || error instanceof SyntaxError) {
+    return Response.json({ error: { code: "VALIDATION_ERROR", message: "Confira o cartão selecionado e o arquivo PDF enviado.", requestId: id } }, { status: 400 });
+  }
   const body = publicError(error, id);
   const status = error instanceof AppError ? error.status : 500;
   return Response.json({ error: body }, { status });

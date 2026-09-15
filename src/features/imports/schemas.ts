@@ -2,7 +2,10 @@ import { z } from "zod";
 
 export const uploadPayloadSchema = z.object({
   creditCardId: z.string().uuid(),
-  displayName: z.string().trim().min(1).max(120).refine((name) => name.toLowerCase().endsWith(".pdf")),
+  // Downloaded invoices can have long, generated filenames. Only shorten the
+  // display metadata; never rename or modify the uploaded document itself.
+  displayName: z.string().trim().min(1).refine((name) => name.toLowerCase().endsWith(".pdf"))
+    .transform((name) => name.length > 120 ? `${name.slice(0, 116)}.pdf` : name),
 });
 
 export const processImportSchema = z.object({

@@ -12,6 +12,8 @@ process.env.BETTER_AUTH_SECRET ??= "playwright-only-secret-with-at-least-32-char
 const password = "Pdf-e2e-password-2026";
 const email = `pdf-e2e-${randomUUID()}@example.com`;
 const userId = randomUUID();
+const longPdfName = `${"generated-invoice-".repeat(12)}.pdf`;
+const normalizedPdfName = `${longPdfName.slice(0, 116)}.pdf`;
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 let authCookies: Awaited<ReturnType<BrowserContext["cookies"]>> = [];
 
@@ -192,14 +194,20 @@ FATURA 2026
 
   await page.goto("/importacoes/nova");
   await page.getByLabel("Cartão").selectOption({ label: "Cartão PDF E2E" });
-  await page.locator('input[type="file"]').setInputFiles(pdfPath);
+  // Regression: generated download filenames longer than 120 characters must
+  // still receive a Blob client token and complete the entire import flow.
+  await page.locator('input[type="file"]').setInputFiles({
+    name: longPdfName,
+    mimeType: "application/pdf",
+    buffer: await readFile(pdfPath),
+  });
   await page.getByRole("button", { name: "Analisar fatura" }).click();
   await page.waitForURL(/\/importacoes\/[0-9a-f-]+\/revisao$/, { timeout: 60_000 });
   const processed = await pool.query<{ status: string; errorCode: string | null; errorMessage: string | null }>(
     `select status, "errorCode", "errorMessage"
-       from imported_files where "userId" = $1 and "displayName" = 'fatura-e2e.pdf'
+       from imported_files where "userId" = $1 and "displayName" = $2
        order by "createdAt" desc limit 1`,
-    [userId],
+    [userId, normalizedPdfName],
   );
   expect(processed.rows[0]).toMatchObject({ status: "REVIEW_READY", errorCode: null, errorMessage: null });
   await expect(page.getByRole("heading", { name: "Revise os lançamentos" })).toBeVisible();
@@ -222,8 +230,8 @@ FATURA 2026
     storageDeletedAt: Date | null;
   }>(
     `select "itemCount", "selectedCount", "fileHash", "storageDeletedAt"
-       from imported_files where "userId" = $1 and status = 'COMPLETED' and "displayName" = 'fatura-e2e.pdf' limit 1`,
-    [userId],
+       from imported_files where "userId" = $1 and status = 'COMPLETED' and "displayName" = $2 limit 1`,
+    [userId, normalizedPdfName],
   );
   expect(completed.rows[0]).toMatchObject({ itemCount: 3, selectedCount: 2, fileHash: pdfHash });
   expect(completed.rows[0]?.storageDeletedAt).not.toBeNull();
